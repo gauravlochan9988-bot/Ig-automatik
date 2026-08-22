@@ -1,6 +1,7 @@
 """Configuration loader with validation."""
 
 import json
+import functools
 from pathlib import Path
 from typing import Dict, Any
 
@@ -94,6 +95,13 @@ class Config:
         else:
             cfg[key] = str(fallback)
 
+    @staticmethod
+    def _as_bool(value):
+        """Coerce a config value to bool, handling 'false'/'0'/'no' strings."""
+        if isinstance(value, str):
+            return value.strip().lower() in ("true", "1", "yes", "on", "y")
+        return bool(value)
+
     @classmethod
     def _validate(cls, cfg: Dict[str, Any]) -> Dict[str, Any]:
         """Validate config values."""
@@ -110,9 +118,10 @@ class Config:
         if not cfg["produce_formats"]:
             cfg["produce_formats"] = ["POSTS", "STORIES"]
 
-        # Validate booleans
+        # Validate booleans. A hand-edited config can hold the string "false"
+        # or "0"; bool("false") would be True, so parse string forms explicitly.
         for key in ["produce_archives", "produce_ig", "safe_edit_only", "auto_move_sources"]:
-            cfg[key] = bool(cfg.get(key, cls.DEFAULTS.get(key, True)))
+            cfg[key] = cls._as_bool(cfg.get(key, cls.DEFAULTS.get(key, True)))
 
         # Validate reel settings
         cfg["reel_max_duration"] = max(5, min(120, int(cfg.get("reel_max_duration", 30))))
@@ -121,8 +130,9 @@ class Config:
         return cfg
 
     @classmethod
+    @functools.lru_cache(maxsize=1)
     def load_env(cls) -> Dict[str, str]:
-        """Load environment variables from .env file."""
+        """Load environment variables from .env file (cached per process)."""
         env = {}
         if cls.ENV_FILE.exists():
             for line in cls.ENV_FILE.read_text(encoding="utf-8").splitlines():

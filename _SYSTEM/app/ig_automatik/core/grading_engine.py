@@ -537,8 +537,15 @@ def process_photo(cfg, src, out_root, output_stem=None):
             f"Vision: {scene_plan['scene_type']} | {scene_plan['main_subject']}"
         )
 
+    # The subject anchor is image-level (vision box or detected face), so it is
+    # computed once and reused across formats.
+    anchor = _subject_anchor(rgb, scene_plan or {})
+
     for fmt in cfg.get("produce_formats", ["POSTS", "STORIES"]):
         ratio = "9:16" if fmt == "STORIES" else "4:5"
+        out_w = cfg.get(
+            "output_width_story" if fmt == "STORIES" else "output_width_post", 1080
+        )
 
         # Get editing plan
         plan = build_editing_plan(
@@ -547,30 +554,22 @@ def process_photo(cfg, src, out_root, output_stem=None):
 
         # Crop and grade. Keep the scene's subject in frame when the vision
         # model supplied a box or a local face was detected.
-        crop = _crop_to_ratio(rgb, ratio, anchor=_subject_anchor(rgb, plan))
+        crop = _crop_to_ratio(rgb, ratio, anchor=anchor)
         # The vision model supplies a bounded grading nudge.  Keep the local
-        # scene defaults as the base and apply the model intent on top.
+        # scene defaults as the base and apply the model intent on top. The
+        # scene analysis is shared by both variants instead of being recomputed.
         intent = plan.get("grading_intent") if scene_plan else None
-        a = grade_variant_a(crop, intent=intent)
-        b = grade_variant_b(crop, intent=intent)
+        scene = analyze_scene(crop)
+        a = grade_variant_a(crop, scene=scene, intent=intent)
+        b = grade_variant_b(crop, scene=scene, intent=intent)
 
         # Export
         out_dir = out_root / fmt
         out_dir.mkdir(parents=True, exist_ok=True)
 
         files = {
-            "A": export_mgr.save_variant(
-                a, out_dir, stem, "A",
-                output_width=cfg.get(
-                    "output_width_story" if fmt == "STORIES" else "output_width_post", 1080
-                ),
-            ),
-            "B": export_mgr.save_variant(
-                b, out_dir, stem, "B",
-                output_width=cfg.get(
-                    "output_width_story" if fmt == "STORIES" else "output_width_post", 1080
-                ),
-            ),
+            "A": export_mgr.save_variant(a, out_dir, stem, "A", output_width=out_w),
+            "B": export_mgr.save_variant(b, out_dir, stem, "B", output_width=out_w),
         }
 
         if not all(export_mgr.verify_exports(exported) for exported in files.values()):
@@ -675,7 +674,7 @@ def _save_reel_manifest(
     manifest_dir = Path(manifest_dir)
     manifest_dir.mkdir(parents=True, exist_ok=True)
     data = {
-        "generated": __import__("time").strftime("%Y-%m-%d %H:%M:%S"),
+        "generated": time.strftime("%Y-%m-%d %H:%M:%S"),
         "source_duration": round(float(source_duration), 3),
         "output_duration": round(
             sum(float(segment.get("take", 0.0)) for segment in selected_segments), 3
@@ -802,6 +801,10 @@ def process_reel(cfg, src, out_root, output_stem=None):
 
     logger.info(f"[Reel] {plan.get('scene_type')} | processing...")
 
+    # Constant per source — probe once, reuse for both variants.
+    has_audio = has_audio_stream(str(src))
+    use_gpu = _nvenc_available()
+
     # Video export (same as original)
     for variant in ("A", "B"):
         out = out_dir / f"{stem}_{variant}.mp4"
@@ -813,8 +816,8 @@ def process_reel(cfg, src, out_root, output_stem=None):
             part,
             variant,
             selected_segments=selected_segments,
-            include_audio=has_audio_stream(str(src)),
-            use_gpu=_nvenc_available(),
+            include_audio=has_audio,
+            use_gpu=use_gpu,
         )
 
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
@@ -875,18 +878,25 @@ def run_on_folder(cfg=None, batch_limit=None):
     for src in files:
         kind = "VIDEO" if src.suffix.lower() in video_ext else "PHOTO"
 
-        # Identical bytes already archived: skip the expensive grading + vision
-        # call and drop the extra copy instead of accumulating _2/_3 files.
-        if _already_archived(cfg, src):
-            skipped.append(src.name)
-            logger.info(f"Skipping duplicate (already archived): {src.name}")
-            src.unlink(missing_ok=True)
-            continue
-
-        logger.info(f"Processing: {src.name} ({kind})")
-        output_stem = _unique_output_stem(out, src.stem)
-
         try:
+            # Identical bytes already archived: skip the expensive grading +
+            # vision call and drop the extra copy instead of accumulating
+            # _2/_3 files. If the check itself raises (permissions, concurrent
+            # delete), fall back to processing rather than aborting the batch.
+            try:
+                is_duplicate = _already_archived(cfg, src)
+            except Exception:
+                is_duplicate = False
+
+            if is_duplicate:
+                skipped.append(src.name)
+                logger.info(f"Skipping duplicate (already archived): {src.name}")
+                src.unlink(missing_ok=True)
+                continue
+
+            logger.info(f"Processing: {src.name} ({kind})")
+            output_stem = _unique_output_stem(out, src.stem)
+
             if kind == "PHOTO":
                 process_photo(cfg, src, out, output_stem=output_stem)
             else:

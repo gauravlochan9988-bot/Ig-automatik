@@ -11,6 +11,7 @@ from ig_automatik.core import grading_engine as engine
 from ig_automatik.core.media import Media
 from ig_automatik.core import video_tools
 from ig_automatik.config import paths as project_paths
+from ig_automatik.config import Config
 import watch
 
 
@@ -263,6 +264,26 @@ class GradingEngineTests(unittest.TestCase):
         self.assertIn("OK: 1", text)
         self.assertIn("Duplikate", text)
         self.assertIn("b.jpg", text)
+
+    def test_config_bool_strings_are_parsed_correctly(self):
+        cfg = Config._validate(
+            {
+                "produce_archives": "false",
+                "auto_move_sources": "0",
+                "produce_ig": "true",
+                "safe_edit_only": "no",
+                "export_quality": 95,
+                "reel_max_duration": 30,
+                "best_clips_max_segments": 15,
+                "produce_formats": ["POSTS"],
+                "output_width_post": 1080,
+                "output_width_story": 1080,
+            }
+        )
+        self.assertIs(cfg["produce_archives"], False)
+        self.assertIs(cfg["auto_move_sources"], False)
+        self.assertIs(cfg["safe_edit_only"], False)
+        self.assertIs(cfg["produce_ig"], True)
 
     def test_reel_command_uses_nvenc_when_requested(self):
         command = engine._build_reel_command(

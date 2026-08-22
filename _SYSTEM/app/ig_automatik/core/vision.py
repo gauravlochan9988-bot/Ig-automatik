@@ -7,6 +7,7 @@ an enhancement, never a hard dependency of the pipeline.
 """
 
 import base64
+import functools
 import json
 import ssl
 import urllib.error
@@ -52,8 +53,9 @@ of the main subject in image coordinates (0=left/top, 1=right/bottom). \
 grading_intent is a nudge relative to a neutral grade, where 0 means "leave as is"."""
 
 
+@functools.lru_cache(maxsize=1)
 def _ssl_context():
-    """Build an SSL context with a usable CA bundle.
+    """Build an SSL context with a usable CA bundle (cached per process).
 
     A framework Python without "Install Certificates.command" run has no trust
     store, so every HTTPS call raises CERTIFICATE_VERIFY_FAILED. certifi ships

@@ -137,9 +137,14 @@ class Handler(FileSystemEventHandler):
         self._handle(event)
 
     def on_moved(self, event):
-        # A rename into the folder (common when copying completes) arrives here.
-        if not event.is_directory and is_media(Path(event.dest_path)):
-            self._note(Path(event.dest_path))
+        # A rename INTO the folder (copy completes via rename) is new work.
+        # A move OUT (archiving to 3_ARCHIV) targets a path outside INPUT and
+        # must not re-trigger a scan.
+        if event.is_directory:
+            return
+        dest = Path(event.dest_path)
+        if is_media(dest) and dest.is_relative_to(INPUT):
+            self._note(dest)
 
     def _handle(self, event):
         if event.is_directory:
@@ -346,15 +351,19 @@ def main():
         # A whole burst of arrivals collapses into one batch run.
         while True:
             if event_handler.take_pending():
+                # Drain the trigger BEFORE the (long) batch run. A file that
+                # arrives while run_processing() runs lands in a fresh set and
+                # is handled on the next loop pass instead of being wiped by a
+                # clear_pending() executed after the run.
+                event_handler.clear_pending()
                 for p in sorted(INPUT.iterdir()):
                     if p.is_file() and is_media(p):
                         wait_for_stable(p)
 
-                # Re-check: main.py archives what it processes, so only act if
+                # Re-check: batch.py archives what it processes, so only act if
                 # something is genuinely still waiting.
                 if any(p.is_file() and is_media(p) for p in INPUT.iterdir()):
                     run_processing()
-                event_handler.clear_pending()
 
             time.sleep(1)
 
