@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -370,6 +371,67 @@ class GradingEngineTests(unittest.TestCase):
         self.assertIn("xfade=transition=fade", filter_graph)
         self.assertIn("acrossfade=d=0.5", filter_graph)
         self.assertIn("zoompan", filter_graph)
+
+    def test_caption_file_generation_and_format(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            out_dir = root / "output" / "POSTS"
+            out_dir.mkdir(parents=True)
+            
+            caption_data = {
+                "hook": "Sunset magic in Florida ✨",
+                "caption": "Golden hour never looked better. Feeling the warm breeze and soaking in every moment.",
+                "hashtags": ["#MiamiVibes", "#FloridaSunset", "#GoldenHour", "#TravelReels", "#Wanderlust"]
+            }
+            
+            caption_path = engine._save_caption_file(out_dir, "my_photo", caption_data)
+            self.assertTrue(caption_path.exists())
+            text = caption_path.read_text(encoding="utf-8")
+            self.assertIn("Sunset magic in Florida ✨", text)
+            self.assertIn("#MiamiVibes", text)
+            self.assertIn("#GoldenHour", text)
+
+    def test_vision_payload_parses_instagram_captions(self):
+        body = {
+            "choices": [{
+                "message": {
+                    "content": json.dumps({
+                        "scene_type": "sunset",
+                        "main_subject": "beach",
+                        "subject_importance": 0.8,
+                        "subject_box": [0.1, 0.2, 0.6, 0.7],
+                        "environment_importance": 0.9,
+                        "sky_importance": 0.9,
+                        "preserve_colors": ["orange", "blue"],
+                        "grading_intent": {"warmth": 0.4, "contrast": 0.2, "saturation": 0.3},
+                        "instagram": {
+                            "hook": "Chasing sunsets in Miami 🌅",
+                            "caption": "Nothing beats this Florida sky.",
+                            "hashtags": ["MiamiLife", "#SunsetLovers", "VacationMode"]
+                        }
+                    })
+                }
+            }],
+            "usage": {"total_tokens": 150}
+        }
+        
+        with patch.object(engine.vision, "is_enabled", return_value=True), \
+             patch("urllib.request.urlopen") as mock_url:
+            mock_resp = mock_url.return_value.__enter__.return_value
+            mock_resp.read.return_value = json.dumps(body).encode("utf-8")
+            
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
+                f_path = Path(f.name)
+                Image.new("RGB", (100, 100), (200, 100, 50)).save(f_path)
+            
+            try:
+                res = engine.vision.analyze(f_path)
+                self.assertIsNotNone(res)
+                self.assertIn("instagram", res)
+                self.assertEqual(res["instagram"]["hook"], "Chasing sunsets in Miami 🌅")
+                self.assertEqual(res["instagram"]["hashtags"], ["#MiamiLife", "#SunsetLovers", "#VacationMode"])
+            finally:
+                f_path.unlink(missing_ok=True)
 
     def test_batch_report_text_lists_skipped_duplicates(self):
         text = engine._build_batch_report_text(["a.jpg"], [], ["b.jpg"])

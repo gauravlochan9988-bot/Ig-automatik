@@ -32,8 +32,8 @@ DEFAULT_MODEL = "google/gemini-2.5-flash-lite"
 
 SCENE_TYPES = {"sunset", "night", "landscape", "portrait", "food_product", "general"}
 
-PROMPT = """You are an Instagram colour-grading expert. Look at the image and \
-describe it for an automated grading pipeline.
+PROMPT = """You are an Instagram colour-grading and content expert. Look at the image and \
+describe it for an automated grading pipeline and generate engaging Instagram copy.
 
 Reply with JSON only, no prose:
 {
@@ -44,7 +44,12 @@ Reply with JSON only, no prose:
   "environment_importance": 0.0-1.0,
   "sky_importance": 0.0-1.0,
   "preserve_colors": ["colours that must not shift, e.g. skin tones"],
-  "grading_intent": {"warmth": -1.0-1.0, "contrast": -1.0-1.0, "saturation": -1.0-1.0}
+  "grading_intent": {"warmth": -1.0-1.0, "contrast": -1.0-1.0, "saturation": -1.0-1.0},
+  "instagram": {
+    "hook": "Catchy 1-line hook or opening with emoji",
+    "caption": "Short, natural, engaging caption (1-2 sentences)",
+    "hashtags": ["#tag1", "#tag2", "#tag3", "#tag4", "#tag5", "#tag6", "#tag7", "#tag8"]
+  }
 }
 
 subject_box is REQUIRED. Always return a bounding box around the main subject:
@@ -55,7 +60,8 @@ must cover the head (top area of the person). subject_box is more important
 than subject_importance for cropping.
 subject_importance says how tightly a crop should hold the subject; \
 sky_importance how much sky is worth keeping. grading_intent is a nudge \
-relative to a neutral grade, where 0 means "leave as is"."""
+relative to a neutral grade, where 0 means "leave as is".
+instagram contains ready-to-use captions and 5-10 relevant trending hashtags."""
 
 
 @functools.lru_cache(maxsize=1)
@@ -210,6 +216,23 @@ def analyze(src: Path) -> Optional[Dict]:
 
     usage = body.get("usage") or {}
 
+    ig_data = data.get("instagram") or {}
+    instagram = None
+    if isinstance(ig_data, dict) and ig_data:
+        raw_tags = ig_data.get("hashtags") or []
+        cleaned_tags = []
+        if isinstance(raw_tags, list):
+            for t in raw_tags:
+                t_str = str(t).strip()
+                if not t_str.startswith("#"):
+                    t_str = f"#{t_str}"
+                cleaned_tags.append(t_str)
+        instagram = {
+            "hook": str(ig_data.get("hook", ""))[:140],
+            "caption": str(ig_data.get("caption", ""))[:500],
+            "hashtags": cleaned_tags[:15],
+        }
+
     return {
         "scene_type": scene_type,
         "main_subject": str(data.get("main_subject", "subject"))[:120],
@@ -223,6 +246,7 @@ def analyze(src: Path) -> Optional[Dict]:
             "contrast": _clamp(intent_raw.get("contrast"), -1.0, 1.0, 0.0),
             "saturation": _clamp(intent_raw.get("saturation"), -1.0, 1.0, 0.0),
         },
+        "instagram": instagram,
         "provider": "openrouter",
         "model": model,
         "tokens": usage.get("total_tokens"),

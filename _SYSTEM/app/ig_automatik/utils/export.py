@@ -112,6 +112,7 @@ class ExportManager:
                 "crop_target": plan.get("crop_target"),
                 "style_a": plan.get("style_a"),
                 "style_b": plan.get("style_b"),
+                "instagram": plan.get("instagram"),
                 "files": {k: {kk: str(vv) for kk, vv in v.items()} for k, v in files.items()},
                 "qa": qa,
             }
