@@ -296,6 +296,22 @@ class GradingEngineTests(unittest.TestCase):
             (arc / "photo.jpg").write_bytes(b"different-bytes")
             self.assertFalse(engine._already_archived({"processed_folder": str(arc)}, src))
 
+    def test_archive_index_finds_duplicate_by_size_and_hash(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "video.mp4"
+            arc = root / "archive"
+            arc.mkdir()
+            src.write_bytes(b"abc")
+            (arc / "copy1.mp4").write_bytes(b"abc")
+            (arc / "other.jpg").write_bytes(b"xyz")
+
+            index = engine._build_archive_index({"processed_folder": str(arc)})
+            self.assertTrue(engine._already_archived({"processed_folder": str(arc)}, src, index=index))
+
+            src.write_bytes(b"different!")
+            self.assertFalse(engine._already_archived({"processed_folder": str(arc)}, src, index=index))
+
     def test_batch_report_text_lists_skipped_duplicates(self):
         text = engine._build_batch_report_text(["a.jpg"], [], ["b.jpg"])
         self.assertIn("OK: 1", text)

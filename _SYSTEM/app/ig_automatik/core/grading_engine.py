@@ -949,6 +949,10 @@ def run_on_folder(cfg=None, batch_limit=None):
     failed = []
     skipped = []
 
+    # Build the archive hash index once per batch instead of re-scanning the
+    # archive (and re-hashing every archived file) for each input file.
+    archive_index = _build_archive_index(cfg)
+
     for src in files:
         kind = "VIDEO" if src.suffix.lower() in video_ext else "PHOTO"
 
@@ -958,7 +962,7 @@ def run_on_folder(cfg=None, batch_limit=None):
             # _2/_3 files. If the check itself raises (permissions, concurrent
             # delete), fall back to processing rather than aborting the batch.
             try:
-                is_duplicate = _already_archived(cfg, src)
+                is_duplicate = _already_archived(cfg, src, index=archive_index)
             except Exception:
                 is_duplicate = False
 
@@ -1048,28 +1052,47 @@ def _file_hash(path, chunk=1024 * 1024):
     return digest.hexdigest()
 
 
-def _already_archived(cfg, src):
-    """True when a byte-identical copy already lives in the archive folder."""
-    archive = Path(
-        cfg.get("processed_folder")
-        or (Path(cfg.get("output_folder", ".")).parent / "3_ARCHIV")
-    )
-    if not archive.is_dir():
-        return False
+def _already_archived(cfg, src, index=None):
+    """True when a byte-identical copy already lives in the archive folder.
+
+    Pass a pre-built ``index`` (from :func:`_build_archive_index`) to avoid
+    re-scanning the archive for every file in a batch — with a large archive
+    that would be O(N·A) stat round-trips over the network share. Without an
+    index, this falls back to a single scan of the archive.
+    """
+    if index is None:
+        index = _build_archive_index(cfg)
     try:
         size = src.stat().st_size
     except OSError:
         return False
 
-    candidates = [
-        p for p in archive.iterdir()
-        if p.is_file() and p.stat().st_size == size
-    ]
-    if not candidates:
+    same_size = index.get(size)
+    if not same_size:
         return False
 
     src_hash = _file_hash(src)
-    return any(_file_hash(p) == src_hash for p in candidates)
+    return src_hash in same_size
+
+
+def _build_archive_index(cfg):
+    """Return {size: set(sha256)} of every file in the archive folder."""
+    archive = Path(
+        cfg.get("processed_folder")
+        or (Path(cfg.get("output_folder", ".")).parent / "3_ARCHIV")
+    )
+    index = {}
+    if not archive.is_dir():
+        return index
+    for p in archive.iterdir():
+        if not p.is_file():
+            continue
+        try:
+            size = p.stat().st_size
+            index.setdefault(size, set()).add(_file_hash(p))
+        except OSError:
+            continue
+    return index
 
 
 if __name__ == "__main__":
