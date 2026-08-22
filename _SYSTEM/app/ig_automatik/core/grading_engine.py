@@ -233,12 +233,13 @@ def _adaptive_sat_gain(scene, base_sat):
     return base_sat
 
 
-def _protect_highlights(rgb):
+def _protect_highlights(rgb, threshold=None, rolloff_factor=None):
     """Compress only the upper tonal range while leaving midtones intact."""
-    threshold = GradingConstants.HIGHLIGHT_THRESHOLD
+    threshold = threshold if threshold is not None else GradingConstants.HIGHLIGHT_THRESHOLD
+    rolloff = rolloff_factor if rolloff_factor is not None else GradingConstants.HIGHLIGHT_ROLLOFF_FACTOR
     excess = np.clip(rgb - threshold, 0.0, 1.0)
     # A smooth rolloff avoids a visible hard boundary around the threshold.
-    compressed = threshold + excess * GradingConstants.HIGHLIGHT_ROLLOFF_FACTOR
+    compressed = threshold + excess * rolloff
     return np.where(rgb > threshold, compressed, rgb).astype(np.float32)
 
 
@@ -324,6 +325,65 @@ def grade_variant_b(base, scene=None, intent=None):
     out = _protect_highlights(out)
 
     return np.clip(out, 0, 1)
+
+
+def _grade_variant_with_qa(
+    variant,
+    crop,
+    scene=None,
+    intent=None,
+    ratio="4:5",
+    max_retries=2,
+    threshold_pct=None,
+):
+    """Grade variant with automatic quality assurance feedback loop.
+
+    If the technical QA check fails (e.g. highlight clipping exceeds the
+    allowable threshold), this progressively tones down contrast, reduces
+    exposure / intent aggressiveness, and strengthens highlight rolloff
+    until the output passes or `max_retries` is reached.
+    """
+    if threshold_pct is None:
+        threshold_pct = GradingConstants.QA_HIGHLIGHT_CLIP_MAX_PCT
+
+    current_intent = dict(intent) if intent else {}
+    grade_fn = grade_variant_b if variant == "B" else grade_variant_a
+
+    best_out = None
+    best_qa = None
+    retries_used = 0
+
+    for attempt in range(max_retries + 1):
+        if attempt > 0:
+            retries_used += 1
+            # Progressive damping on each retry
+            scale = 0.5 ** attempt
+            current_intent = {
+                "contrast": float(intent.get("contrast", 0.0)) * scale,
+                "saturation": float(intent.get("saturation", 0.0)) * scale,
+                "warmth": float(intent.get("warmth", 0.0)) * scale,
+            } if intent else {}
+        else:
+            current_intent = dict(intent) if intent else {}
+
+        out = grade_fn(crop, scene=scene, intent=current_intent if intent else None)
+
+        # On retries, add extra highlight damping directly to the result if still clipping
+        if attempt > 0:
+            out = _protect_highlights(out, threshold=0.96 - 0.02 * attempt)
+            # Gentle EV pull-down on stubborn highlights
+            out = np.clip(out * (0.98 ** attempt), 0, 1)
+
+        qa = technical_qa(out, ratio)
+
+        if best_out is None or qa["checks"]["clipped_high_pct"] < best_qa["checks"]["clipped_high_pct"]:
+            best_out = out
+            best_qa = qa
+
+        if qa["pass"]:
+            return out, qa, retries_used
+
+    return best_out, best_qa, retries_used
 
 
 # ============================================================================
@@ -634,8 +694,19 @@ def process_photo(cfg, src, out_root, output_stem=None):
         # scene analysis is shared by both variants instead of being recomputed.
         intent = plan.get("grading_intent") if scene_plan else None
         scene = analyze_scene(crop)
-        a = grade_variant_a(crop, scene=scene, intent=intent)
-        b = grade_variant_b(crop, scene=scene, intent=intent)
+        max_qa_retries = int(cfg.get("max_qa_retries", 2))
+
+        a, qa_a, retries_a = _grade_variant_with_qa(
+            "A", crop, scene=scene, intent=intent, ratio=ratio, max_retries=max_qa_retries
+        )
+        b, qa_b, retries_b = _grade_variant_with_qa(
+            "B", crop, scene=scene, intent=intent, ratio=ratio, max_retries=max_qa_retries
+        )
+
+        if retries_a > 0 or retries_b > 0:
+            logger.info(
+                f"[{fmt}] QA auto-recovery applied (A: {retries_a} retries, B: {retries_b} retries)"
+            )
 
         # Export
         out_dir = out_root / fmt
@@ -649,7 +720,7 @@ def process_photo(cfg, src, out_root, output_stem=None):
         if not all(export_mgr.verify_exports(exported) for exported in files.values()):
             raise RuntimeError(f"Export verification failed for {stem} ({fmt})")
 
-        qa = {"A": technical_qa(a, ratio), "B": technical_qa(b, ratio)}
+        qa = {"A": qa_a, "B": qa_b}
         m = export_mgr.save_manifest(out_dir, stem, plan, files, qa)
 
         logger.info(f"[{fmt}] A/B exported | provider={plan.get('provider')}")

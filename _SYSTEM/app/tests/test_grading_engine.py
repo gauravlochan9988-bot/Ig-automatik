@@ -312,6 +312,37 @@ class GradingEngineTests(unittest.TestCase):
             src.write_bytes(b"different!")
             self.assertFalse(engine._already_archived({"processed_folder": str(arc)}, src, index=index))
 
+    def test_auto_regrade_on_qa_failure_recovers_blown_highlights(self):
+        # Create an image that easily clips if graded aggressively
+        # (bright highlights near 0.95-0.99 with high contrast intent)
+        bright_crop = np.full((100, 100, 3), 0.92, dtype=np.float32)
+        bright_crop[20:80, 20:80] = 0.98
+
+        scene = {"natural": {"contrast": 4.0, "sat": 2.0}, "tags": []}
+        intent = {"contrast": 1.0, "saturation": 0.8, "warmth": 0.5}
+
+        graded_a, qa_a, retries_a = engine._grade_variant_with_qa(
+            "A", bright_crop, scene=scene, intent=intent, ratio="1:1", max_retries=2
+        )
+
+        self.assertTrue(qa_a["pass"])
+        self.assertLess(qa_a["checks"]["clipped_high_pct"], 5.0)
+        self.assertGreaterEqual(retries_a, 1)
+
+    def test_auto_regrade_variant_b_recovers_from_severe_clipping(self):
+        bright_crop = np.full((100, 100, 3), 0.94, dtype=np.float32)
+        bright_crop[10:90, 10:90] = 0.99
+
+        scene = {"cinematic": {"contrast": 5.0, "sat": 3.0}, "tags": []}
+        intent = {"contrast": 1.0, "saturation": 0.9, "warmth": 0.8}
+
+        graded_b, qa_b, retries_b = engine._grade_variant_with_qa(
+            "B", bright_crop, scene=scene, intent=intent, ratio="1:1", max_retries=2
+        )
+
+        self.assertTrue(qa_b["pass"])
+        self.assertLess(qa_b["checks"]["clipped_high_pct"], 5.0)
+
     def test_batch_report_text_lists_skipped_duplicates(self):
         text = engine._build_batch_report_text(["a.jpg"], [], ["b.jpg"])
         self.assertIn("OK: 1", text)
@@ -482,8 +513,8 @@ class GradingEngineTests(unittest.TestCase):
                     patch.object(engine, "grade_variant_b", wraps=engine.grade_variant_b) as grade_b:
                 engine.process_photo(cfg, source, root / "output")
 
-            self.assertEqual(grade_a.call_args.kwargs["intent"], plan["grading_intent"])
-            self.assertEqual(grade_b.call_args.kwargs["intent"], plan["grading_intent"])
+            self.assertEqual(grade_a.call_args_list[0].kwargs["intent"], plan["grading_intent"])
+            self.assertEqual(grade_b.call_args_list[0].kwargs["intent"], plan["grading_intent"])
 
     def test_manifest_is_unique_per_asset_and_format(self):
         with tempfile.TemporaryDirectory() as tmp:
