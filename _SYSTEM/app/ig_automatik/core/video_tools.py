@@ -165,10 +165,17 @@ def select_best_segments(
     return sorted(chosen, key=lambda item: item["start"])
 
 
-def build_segment_filter(segments, video_filter, include_audio=True):
-    """Build an ffmpeg filter graph that trims and concatenates selected clips."""
+def build_segment_filter(
+    segments,
+    video_filter,
+    include_audio=True,
+    transition="none",
+    transition_duration=0.5,
+    ken_burns=False,
+    zoom_speed="0.0015",
+):
+    """Build an ffmpeg filter graph that trims, animates, transitions, and concatenates clips."""
     parts = []
-    inputs = []
     video_labels = [f"vin{index}" for index in range(len(segments))]
     audio_labels = [f"ain{index}" for index in range(len(segments))]
 
@@ -177,29 +184,69 @@ def build_segment_filter(segments, video_filter, include_audio=True):
         if include_audio:
             parts.append(f"[0:a]asplit={len(segments)}" + "".join(f"[{label}]" for label in audio_labels))
 
+    # Process each segment
     for index, segment in enumerate(segments):
         start = float(segment["start"])
         end = float(segment["end"])
-        parts.append(
-            f"[{video_labels[index] if len(segments) > 1 else '0:v'}]"
-            f"trim=start={start:.3f}:end={end:.3f},setpts=PTS-STARTPTS,"
-            f"{video_filter}[v{index}]"
-        )
-        inputs.append(f"[v{index}]")
+        duration = end - start
+        
+        # Build segment video filter
+        v_chain = [f"trim=start={start:.3f}:end={end:.3f}", "setpts=PTS-STARTPTS"]
+        
+        if ken_burns:
+            # Dynamic slow push-in zoompan
+            v_chain.append(
+                f"zoompan=z='min(zoom+{zoom_speed},1.15)':d={max(1, int(duration * 30))}:s=1080x1920:fps=30"
+            )
+            
+        v_chain.append(video_filter)
+        parts.append(f"[{video_labels[index] if len(segments) > 1 else '0:v'}]{','.join(v_chain)}[v{index}]")
+
         if include_audio:
             parts.append(
                 f"[{audio_labels[index] if len(segments) > 1 else '0:a'}]"
                 f"atrim=start={start:.3f}:end={end:.3f},"
                 f"asetpts=PTS-STARTPTS[a{index}]"
             )
-            inputs.append(f"[a{index}]")
 
-    audio_flag = 1 if include_audio else 0
-    parts.append(
-        "".join(inputs)
-        + f"concat=n={len(segments)}:v=1:a={audio_flag}[outv]"
-        + ("[outa]" if include_audio else "")
-    )
+    # Combine segments: using xfade/acrossfade if transitions requested, else simple concat
+    use_xfade = transition not in ("none", "", None) and len(segments) > 1 and transition != "concat"
+    
+    if use_xfade:
+        t_dur = float(transition_duration)
+        # Chain video with xfade
+        prev_v = "[v0]"
+        current_offset = float(segments[0]["end"]) - float(segments[0]["start"]) - t_dur
+        for idx in range(1, len(segments)):
+            seg_dur = float(segments[idx]["end"]) - float(segments[idx]["start"])
+            out_v = f"[vx{idx}]" if idx < len(segments) - 1 else "[outv]"
+            parts.append(
+                f"{prev_v}[v{idx}]xfade=transition={transition}:duration={t_dur:.2f}:offset={max(0.0, current_offset):.3f}{out_v}"
+            )
+            prev_v = out_v
+            current_offset += seg_dur - t_dur
+
+        if include_audio:
+            prev_a = "[a0]"
+            for idx in range(1, len(segments)):
+                out_a = f"[ax{idx}]" if idx < len(segments) - 1 else "[outa]"
+                parts.append(
+                    f"{prev_a}[a{idx}]acrossfade=d={t_dur:.2f}{out_a}"
+                )
+                prev_a = out_a
+    else:
+        inputs = []
+        for index in range(len(segments)):
+            inputs.append(f"[v{index}]")
+            if include_audio:
+                inputs.append(f"[a{index}]")
+        audio_flag = 1 if include_audio else 0
+        parts.append(
+            "".join(inputs)
+            + f"concat=n={len(segments)}:v=1:a={audio_flag}[outv]"
+            + ("[outa]" if include_audio else "")
+        )
+
     return ";".join(parts)
 
 

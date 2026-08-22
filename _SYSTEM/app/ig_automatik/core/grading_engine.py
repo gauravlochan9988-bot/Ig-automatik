@@ -758,7 +758,14 @@ def _nvenc_available():
 
 
 def _build_reel_command(
-    cfg, src, out, variant, selected_segments=None, include_audio=True, use_gpu=False
+    cfg,
+    src,
+    out,
+    variant,
+    selected_segments=None,
+    include_audio=True,
+    use_gpu=False,
+    template=None,
 ):
     """Build an Instagram/mobile-compatible ffmpeg export command."""
     # Keep paths relative to the project working directory.  The project lives
@@ -767,15 +774,42 @@ def _build_reel_command(
     src = str(Path(src))
     out = str(Path(out))
     base = "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"
-    contrast = 2.5 if variant == "B" else 1.5
-    eq = f"eq=contrast={1 + contrast / 10.0}:saturation=1.3"
+    
+    # Grading from template or default A/B
+    if template and "grading" in template:
+        t_grading = template["grading"]
+        warmth = float(t_grading.get("warmth", 0.0))
+        contrast = float(t_grading.get("contrast", 1.2 if variant == "B" else 1.1))
+        saturation = float(t_grading.get("saturation", 1.25))
+        if variant == "B":
+            contrast *= 1.15
+            saturation *= 1.1
+        eq = f"eq=contrast={contrast:.2f}:saturation={saturation:.2f}"
+    else:
+        contrast = 2.5 if variant == "B" else 1.5
+        eq = f"eq=contrast={1 + contrast / 10.0}:saturation=1.3"
+
+    ken_burns = bool(
+        template.get("ken_burns", False)
+        if template
+        else cfg.get("video_kenburns", False)
+    )
+    zoom_speed = template.get("zoom_speed", "0.0015") if template else "0.0015"
+    transition = template.get("transition_type", "none") if template else "none"
+    transition_duration = float(template.get("transition_duration", 0.5)) if template else 0.5
 
     command = ["ffmpeg", "-y", "-i", str(src)]
     if selected_segments:
         from .video_tools import build_segment_filter
 
         filter_graph = build_segment_filter(
-            selected_segments, base + "," + eq, include_audio=include_audio
+            selected_segments,
+            base + "," + eq,
+            include_audio=include_audio,
+            transition=transition,
+            transition_duration=transition_duration,
+            ken_burns=ken_burns,
+            zoom_speed=zoom_speed,
         )
         command += ["-filter_complex", filter_graph, "-map", "[outv]"]
         if include_audio:
@@ -784,7 +818,12 @@ def _build_reel_command(
         command += ["-map", "0:v:0"]
         if include_audio:
             command += ["-map", "0:a:0?"]
-        command += ["-vf", base + "," + eq]
+        vf_chain = [base, eq]
+        if ken_burns:
+            vf_chain.insert(
+                0, f"zoompan=z='min(zoom+{zoom_speed},1.15)':d=900:s=1080x1920:fps=30"
+            )
+        command += ["-vf", ",".join(vf_chain)]
 
     if use_gpu:
         codec = ["-c:v", "h264_nvenc", "-preset", "p5", "-rc", "vbr", "-cq", "18", "-b:v", "0", "-profile:v", "main", "-level", "4.1"]
@@ -814,6 +853,7 @@ def _save_reel_manifest(
     selected_segments,
     provider,
     outputs,
+    template=None,
 ):
     """Save the editing decision next to the other machine-readable manifests."""
     manifest_dir = Path(manifest_dir)
@@ -826,6 +866,7 @@ def _save_reel_manifest(
         ) if selected_segments else None,
         "selected_segments": selected_segments or [],
         "editing_provider": provider,
+        "template": template.get("name") if template else "Default A/B",
         "grading_variants": ["A", "B"],
         "outputs": {key: str(value) for key, value in outputs.items()},
     }
@@ -878,6 +919,7 @@ def process_reel(cfg, src, out_root, output_stem=None):
     # Get plan from representative frame
     frame = extract_segment_frame(str(src), 0.5) if segs else None
     plan = None
+    scene_plan = None
 
     if frame:
         try:
@@ -946,6 +988,11 @@ def process_reel(cfg, src, out_root, output_stem=None):
 
     logger.info(f"[Reel] {plan.get('scene_type')} | processing...")
 
+    # Template selection based on scene analysis or default
+    from . import templates
+    template = templates.select_template_for_scene(scene_plan or plan)
+    logger.info(f"[Reel] Applied Template: {template.get('name')} (transitions={template.get('transition_type')}, ken_burns={template.get('ken_burns')})")
+
     # Constant per source — probe once, reuse for both variants.
     has_audio = has_audio_stream(str(src))
     use_gpu = _nvenc_available()
@@ -963,6 +1010,7 @@ def process_reel(cfg, src, out_root, output_stem=None):
             selected_segments=selected_segments,
             include_audio=has_audio,
             use_gpu=use_gpu,
+            template=template,
         )
 
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
@@ -987,6 +1035,7 @@ def process_reel(cfg, src, out_root, output_stem=None):
             variant: out_dir / f"{stem}_{variant}.mp4"
             for variant in ("A", "B")
         },
+        template=template,
     )
     logger.info("Reels complete (A/B variants)")
 

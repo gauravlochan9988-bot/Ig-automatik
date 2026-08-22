@@ -343,6 +343,34 @@ class GradingEngineTests(unittest.TestCase):
         self.assertTrue(qa_b["pass"])
         self.assertLess(qa_b["checks"]["clipped_high_pct"], 5.0)
 
+    def test_templates_load_and_resolve(self):
+        from ig_automatik.core import templates
+        tpl = templates.get_template("miami_vibes")
+        self.assertEqual(tpl["name"], "Miami Summer Vibe")
+        self.assertIn("xfade", tpl["transitions"])
+        self.assertTrue(tpl["ken_burns"])
+
+        # Auto selection by scene
+        matched = templates.select_template_for_scene({"scene_type": "sunset", "main_subject": "beach sunset"})
+        self.assertEqual(matched["id"], "miami_vibes")
+
+        night_matched = templates.select_template_for_scene({"scene_type": "night", "main_subject": "bar party"})
+        self.assertEqual(night_matched["id"], "moody_night")
+
+    def test_segment_filter_with_transitions(self):
+        segments = [{"start": 1.0, "end": 4.0}, {"start": 8.0, "end": 11.0}]
+        filter_graph = video_tools.build_segment_filter(
+            segments,
+            "scale=1080:1920",
+            include_audio=True,
+            transition="fade",
+            transition_duration=0.5,
+            ken_burns=True,
+        )
+        self.assertIn("xfade=transition=fade", filter_graph)
+        self.assertIn("acrossfade=d=0.5", filter_graph)
+        self.assertIn("zoompan", filter_graph)
+
     def test_batch_report_text_lists_skipped_duplicates(self):
         text = engine._build_batch_report_text(["a.jpg"], [], ["b.jpg"])
         self.assertIn("OK: 1", text)
