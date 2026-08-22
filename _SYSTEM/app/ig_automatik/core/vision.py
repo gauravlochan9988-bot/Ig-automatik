@@ -47,10 +47,15 @@ Reply with JSON only, no prose:
   "grading_intent": {"warmth": -1.0-1.0, "contrast": -1.0-1.0, "saturation": -1.0-1.0}
 }
 
+subject_box is REQUIRED. Always return a bounding box around the main subject:
+for a person, put it around the FACE and upper body (head must be inside the box).
+Approximate coordinates are fine: [x, y, width, height] all in 0..1 where
+0,0 is the top-left of the image. If the main subject is a person, the box
+must cover the head (top area of the person). subject_box is more important
+than subject_importance for cropping.
 subject_importance says how tightly a crop should hold the subject; \
-sky_importance how much sky is worth keeping. subject_box is the bounding box \
-of the main subject in image coordinates (0=left/top, 1=right/bottom). \
-grading_intent is a nudge relative to a neutral grade, where 0 means "leave as is"."""
+sky_importance how much sky is worth keeping. grading_intent is a nudge \
+relative to a neutral grade, where 0 means "leave as is"."""
 
 
 @functools.lru_cache(maxsize=1)

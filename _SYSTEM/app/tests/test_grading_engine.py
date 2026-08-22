@@ -227,6 +227,43 @@ class GradingEngineTests(unittest.TestCase):
         anchor = engine._subject_anchor(rgb, {"scene_type": "general"})
         self.assertIsNone(anchor)
 
+    def test_saliency_anchor_finds_subject_in_upper_left(self):
+        # A bright detailed blob top-left, uniform elsewhere. The saliency
+        # anchor must point there (upper half bias + detail centroid).
+        rgb = np.full((100, 200, 3), 0.1, dtype=np.float32)
+        rgb[15:45, 20:60] = 0.9  # detailed bright region, upper-left
+        rgb[15:45, 20:60] += np.random.default_rng(0).random((30, 40, 3)).astype(np.float32) * 0.05
+        ax, ay = engine._saliency_anchor(rgb)
+        self.assertIsNotNone(ax)
+        self.assertLess(ax, 0.4)
+        self.assertLess(ay, 0.6)
+
+    def test_saliency_anchor_returns_none_for_uniform_image(self):
+        rgb = np.full((50, 50, 3), 0.5, dtype=np.float32)
+        self.assertIsNone(engine._saliency_anchor(rgb))
+
+    def test_person_subject_biases_anchor_into_upper_third(self):
+        # Person detected (vision) but no subject_box and no Haar face match:
+        # the anchor must sit in the upper third so the head stays in frame.
+        rgb = np.full((100, 80, 3), 0.3, dtype=np.float32)
+        plan = {"scene_type": "general", "main_subject": "woman in sparkly outfit with cowboy hat"}
+        ax, ay = engine._subject_anchor(rgb, plan)
+        self.assertIsNotNone(ax)
+        self.assertLess(ay, 0.4)  # upper third, not mid-frame
+
+        # Non-person scenes without vision box/face fall to saliency when
+        # there is detectable detail; a perfectly uniform image has no anchor.
+        detailed = np.full((100, 80, 3), 0.3, dtype=np.float32)
+        detailed[10:50, 10:40] = 0.9
+        anchor = engine._subject_anchor(detailed, {"scene_type": "landscape"})
+        self.assertIsNotNone(anchor)
+        self.assertIsNone(engine._subject_anchor(rgb, {"scene_type": "landscape"}))
+
+    def test_person_words_detection(self):
+        self.assertTrue(engine._is_person_subject({"scene_type": "portrait"}))
+        self.assertTrue(engine._is_person_subject({"main_subject": "woman with hat"}))
+        self.assertFalse(engine._is_person_subject({"scene_type": "landscape", "main_subject": "mountains"}))
+
     def test_batch_report_text_lists_failures(self):
         text = engine._build_batch_report_text(["a.jpg", "b.jpg"], [("c.jpg", "boom")])
         self.assertIn("OK: 2", text)

@@ -333,9 +333,13 @@ def grade_variant_b(base, scene=None, intent=None):
 def _subject_anchor(rgb, plan):
     """Return a normalized (x, y) anchor for the crop window, or None.
 
-    Resolution order: a ``subject_box`` supplied by the vision model wins,
-    then local face detection, then None (caller falls back to the legacy
-    centre/0.45 crop).
+    Resolution order:
+      1. ``subject_box`` supplied by the vision model wins.
+      2. Local face detection (frontal then profile cascade).
+      3. A person-aware fallback: when vision says the subject is a person but
+         gave no box, bias the anchor toward the upper third — heads live at
+         the top, and a mid-frame crop is what decapitates people.
+      4. Saliency (detail centroid) as a last resort.
     """
     plan = plan or {}
 
@@ -350,30 +354,100 @@ def _subject_anchor(rgb, plan):
         except (TypeError, ValueError):
             pass
 
-    anchor = _face_anchor(rgb)
-    if anchor is not None:
-        return anchor
+    face = _face_anchor(rgb)
+    if face is not None:
+        return face
 
-    return None
+    if _is_person_subject(plan):
+        # Faces sit in the upper part of a person; combined with the x from
+        # the saliency map when available, otherwise centred.
+        y = 0.30
+        sal = _saliency_anchor(rgb)
+        x = sal[0] if sal else 0.5
+        return (min(0.9, max(0.1, x)), y)
+
+    # Last resort before the legacy blind crop: find the visually most
+    # detailed region (faces sit in the upper half, hats/party light don't
+    # confuse a gradient map).
+    return _saliency_anchor(rgb)
+
+
+_PERSON_WORDS = (
+    "person", "people", "woman", "man", "girl", "boy", "face", "portrait",
+    "selfie", "couple", "family", "model", "human",
+)
+
+
+def _is_person_subject(plan):
+    """Best-effort guess that the main subject is a person (faces matter)."""
+    scene = str(plan.get("scene_type", "")).lower()
+    if scene in ("portrait",):
+        return True
+    subject = str(plan.get("main_subject", "")).lower()
+    return any(word in subject for word in _PERSON_WORDS)
 
 
 def _face_anchor(rgb):
-    """Detect faces and return the centroid of the group, or None."""
+    """Detect faces and return the centroid of the group, or None.
+
+    Tries the frontal cascade first, then the profile cascade — profile shots
+    and party/hat photos regularly defeat the frontal detector. Both are
+    local OpenCV models, no network needed.
+    """
+    gray = None
     try:
-        cascade = cv2.CascadeClassifier(
-            cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-        )
         gray = cv2.cvtColor(
             np.clip(rgb, 0, 1).astype(np.float32) * 255.0, cv2.COLOR_RGB2GRAY
         ).astype(np.uint8)
-        faces = cascade.detectMultiScale(gray, 1.1, 5, minSize=(24, 24))
-        if len(faces) == 0:
-            return None
+    except Exception:
+        return None
 
-        h, w = rgb.shape[:2]
-        # Use the centre of the single most prominent face (largest area).
-        x, y, fw, fh = max(faces, key=lambda f: f[2] * f[3])
-        return ((x + fw / 2.0) / w, (y + fh / 2.0) / h)
+    for cascade_name in (
+        "haarcascade_frontalface_default.xml",
+        "haarcascade_profileface.xml",
+    ):
+        try:
+            cascade = cv2.CascadeClassifier(cv2.data.haarcascades + cascade_name)
+            faces = cascade.detectMultiScale(gray, 1.1, 5, minSize=(24, 24))
+            if len(faces) == 0:
+                continue
+            h, w = rgb.shape[:2]
+            # Larger faces are more reliable; prefer the biggest one.
+            x, y, fw, fh = max(faces, key=lambda f: f[2] * f[3])
+            return ((x + fw / 2.0) / w, (y + fh / 2.0) / h)
+        except Exception:
+            continue
+    return None
+
+
+def _saliency_anchor(rgb):
+    """Estimate where the visual interest is without any ML model.
+
+    Faces are usually in the upper half, so weight the detail (gradient) map
+    toward the top; the anchor is the intensity-weighted centroid. This keeps
+    subjects in frame when vision has no box and the Haar cascade misses
+    (hats, side profiles, dim party light).
+    """
+    try:
+        gray = cv2.cvtColor(
+            np.clip(rgb, 0, 1).astype(np.float32) * 255.0, cv2.COLOR_RGB2GRAY
+        ).astype(np.uint8)
+        gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+        gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+        detail = cv2.magnitude(gx, gy)
+
+        h, w = detail.shape
+        # Vertical bias: subjects (and especially faces) sit high in the frame.
+        rows = np.linspace(0.7, 1.0, h, dtype=np.float32)[:, None]
+        weighted = detail * rows
+
+        total = float(weighted.sum())
+        if total < 1e-6:
+            return None
+        ys, xs = np.mgrid[0:h, 0:w]
+        cx = float((weighted * xs).sum() / total) / w
+        cy = float((weighted * ys).sum() / total) / h
+        return (min(0.95, max(0.05, cx)), min(0.95, max(0.05, cy)))
     except Exception:
         return None
 
