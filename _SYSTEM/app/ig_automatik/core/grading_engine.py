@@ -1,0 +1,993 @@
+"""IG-AUTOMATIK: AI Adaptive Professional Grading Engine (refactored)."""
+
+import os
+import json
+import subprocess
+import time
+import functools
+import hashlib
+from pathlib import Path
+from typing import Dict, Optional
+import numpy as np
+import cv2
+from PIL import Image
+
+from ..config import Config, GradingConstants
+from ..utils import get_logger, ExportManager
+from .pipeline import Pipeline
+from . import vision
+
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except Exception:
+    pass
+
+PHOTO_EXT = {".jpg", ".jpeg", ".png", ".gif", ".dng", ".tif", ".tiff", ".bmp", ".webp", ".heic", ".raw", ".nef", ".cr2", ".arw"}
+VIDEO_EXT = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v", ".3gp"}
+
+
+# ============================================================================
+# Image Loading
+# ============================================================================
+
+def load_rgb(path):
+    """Load image as float32 RGB (0..1)."""
+    p = Path(path)
+    if p.suffix.lower() in {".dng", ".nef", ".cr2", ".arw", ".tif", ".tiff", ".heic"}:
+        with Image.open(path) as im:
+            source = np.asarray(im)
+            if np.issubdtype(source.dtype, np.integer) and source.dtype.itemsize > 1:
+                if source.ndim == 2:
+                    source = np.repeat(source[..., None], 3, axis=2)
+                elif source.ndim == 3 and source.shape[2] == 1:
+                    source = np.repeat(source, 3, axis=2)
+                elif source.ndim != 3 or source.shape[2] < 3:
+                    source = np.asarray(im.convert("RGB"))
+                else:
+                    source = source[..., :3]
+            else:
+                source = np.asarray(im.convert("RGB"))
+            if np.issubdtype(source.dtype, np.integer):
+                scale = float(np.iinfo(source.dtype).max)
+            else:
+                scale = 1.0 if source.max() <= 1.0 else float(source.max())
+            arr = source.astype(np.float32) / scale
+        return arr
+
+    bgr = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
+    if bgr is None:
+        raise ValueError(f"Cannot read image: {path}")
+
+    if bgr.ndim == 2:
+        bgr = cv2.cvtColor(bgr, cv2.COLOR_GRAY2BGR)
+
+    if np.issubdtype(bgr.dtype, np.integer):
+        # Preserve the source bit depth.  Dividing uint16 images by 255 would
+        # produce values around 128 instead of the expected 0..1 range.
+        scale = float(np.iinfo(bgr.dtype).max)
+        bgr = bgr.astype(np.float32) / scale
+    elif bgr.dtype != np.float32 or bgr.max() > 1.0:
+        bgr = bgr.astype(np.float32)
+        if bgr.max() > 1.0:
+            bgr /= float(bgr.max())
+
+    rgb = bgr[..., ::-1]
+    if rgb.ndim == 3 and rgb.shape[2] == 4:
+        rgb = rgb[..., :3]
+
+    return rgb
+
+
+# ============================================================================
+# Technical Normalization
+# ============================================================================
+
+def normalize_technical(rgb):
+    """Normalize exposure and white balance."""
+    params = {}
+
+    # Exposure normalization
+    gray = cv2.cvtColor(
+        (rgb * 255).astype(np.float32) if rgb.max() <= 1 else rgb,
+        cv2.COLOR_RGB2GRAY,
+    )
+    lum = gray.mean() / 255.0
+    exp = GradingConstants.EXPOSURE_TARGET_LUMINANCE / (lum + 1e-6)
+    exp = np.clip(exp, GradingConstants.EXPOSURE_MIN_GAIN, GradingConstants.EXPOSURE_MAX_GAIN)
+    out = np.clip(rgb * exp, 0, 1)
+    params["exposure_gain"] = float(exp)
+
+    # White balance
+    mean_r = rgb[:, :, 0].mean()
+    mean_g = rgb[:, :, 1].mean()
+    mean_b = rgb[:, :, 2].mean()
+    g = (mean_r + mean_b) / 2.0
+
+    if mean_g > 0:
+        gain_r = g / (mean_r + 1e-6)
+        gain_b = g / (mean_b + 1e-6)
+        gain_g = 1.0
+    else:
+        gain_r = gain_g = gain_b = 1.0
+
+    gains = np.clip([gain_r, gain_g, gain_b], GradingConstants.WB_GAIN_MIN, GradingConstants.WB_GAIN_MAX)
+    gains = gains / np.mean(gains)
+    out = np.clip(out * gains.reshape(1, 1, 3), 0, 1)
+    out = np.clip((out - 0.5) * GradingConstants.MICROCONTRAST_FACTOR + 0.5, 0, 1)
+    params["wb_gains"] = [round(g, 3) for g in gains]
+
+    return out, params
+
+
+# ============================================================================
+# Enhanced Scene Analysis
+# ============================================================================
+
+def analyze_scene(rgb):
+    """Analyze scene with improved detection."""
+    scene = {"tags": [], "cinematic": {}, "natural": {}}
+
+    # HSV analysis
+    hsv = cv2.cvtColor(np.clip(rgb * 255, 0, 255).astype(np.uint8), cv2.COLOR_RGB2HSV)
+    sat = float(hsv[:, :, 1].mean())
+    val = float(hsv[:, :, 2].mean()) / 255.0
+
+    # Color warmth
+    mean_r = float(rgb[:, :, 0].mean())
+    mean_b = float(rgb[:, :, 2].mean())
+    warm_index = (mean_r - mean_b) / (mean_r + mean_b + 1e-6)
+
+    # Scene detection
+    tags = []
+    if warm_index > GradingConstants.SUNSET_WARM_INDEX and val > GradingConstants.SUNSET_VALUE_MIN:
+        tags.append("sunset_warm")
+    elif val < GradingConstants.NIGHT_VALUE_MAX:
+        tags.append("night")
+
+    if sat > GradingConstants.SATURATED_SAT_MIN:
+        tags.append("saturated")
+    if sat < GradingConstants.MUTED_SAT_MAX:
+        tags.append("muted")
+
+    # Check for product/food (low saturation, even lighting)
+    std_r = float(rgb[:, :, 0].std())
+    std_b = float(rgb[:, :, 2].std())
+    if sat < 80 and (std_r + std_b) / 2 < 0.15 and val > 0.4:
+        tags.append("product")
+
+    scene["tags"] = tags if tags else ["general"]
+    scene["value"] = val
+    scene["warm_index"] = warm_index
+    scene["saturation"] = sat
+
+    # Adaptive parameters
+    if "night" in tags:
+        scene["cinematic"] = {"shadow": -12, "highlights": -6, "contrast": 10, "sat": 6, "warm_mult": 2.0}
+        scene["natural"] = {"shadow": 6, "highlights": -2, "contrast": 5, "sat": 3}
+    elif "sunset_warm" in tags:
+        scene["cinematic"] = {"contrast": 9, "sat": 5, "warm_mult": 2.2, "cool_shadows": 0.85}
+        scene["natural"] = {"contrast": 4, "sat": 2}
+    elif "muted" in tags:
+        scene["cinematic"] = {"contrast": 8, "sat": 7, "warm_mult": 1.8}
+        scene["natural"] = {"contrast": 6, "sat": 4}
+    elif "product" in tags:
+        scene["cinematic"] = {"contrast": 7, "sat": 4, "warm_mult": 1.5}
+        scene["natural"] = {"contrast": 4, "sat": 2}
+    else:  # general / saturated
+        scene["cinematic"] = {"contrast": 8, "sat": 5, "warm_mult": 2.0}
+        scene["natural"] = {"contrast": 4, "sat": 2}
+
+    return scene
+
+
+# ============================================================================
+# Grading Functions (Enhanced)
+# ============================================================================
+
+def _hsv_float_sat(rgb_float, sat_gain):
+    """Saturation adjustment without uint8 conversion."""
+    rgb = np.clip(rgb_float.astype(np.float32), 0.0, 1.0)
+    maximum = rgb.max(axis=2)
+    minimum = rgb.min(axis=2)
+    delta = maximum - minimum
+    value = maximum
+    saturation = np.divide(delta, maximum, out=np.zeros_like(delta), where=maximum > 1e-8)
+
+    hue = np.zeros_like(maximum)
+    nonzero = delta > 1e-8
+    red = (maximum == rgb[..., 0]) & nonzero
+    green = (maximum == rgb[..., 1]) & nonzero
+    blue = (maximum == rgb[..., 2]) & nonzero
+    hue[red] = ((rgb[..., 1][red] - rgb[..., 2][red]) / delta[red]) % 6.0
+    hue[green] = (rgb[..., 2][green] - rgb[..., 0][green]) / delta[green] + 2.0
+    hue[blue] = (rgb[..., 0][blue] - rgb[..., 1][blue]) / delta[blue] + 4.0
+    hue /= 6.0
+
+    saturation = np.clip(saturation * float(sat_gain), 0.0, 1.0)
+    sector = np.floor(hue * 6.0).astype(np.int32)
+    fraction = hue * 6.0 - sector
+    p = value * (1.0 - saturation)
+    q = value * (1.0 - saturation * fraction)
+    t = value * (1.0 - saturation * (1.0 - fraction))
+    choices = np.stack(
+        [
+            np.stack([value, t, p], axis=2),
+            np.stack([q, value, p], axis=2),
+            np.stack([p, value, t], axis=2),
+            np.stack([p, q, value], axis=2),
+            np.stack([t, p, value], axis=2),
+            np.stack([value, p, q], axis=2),
+        ],
+        axis=0,
+    )
+    result = choices[sector % 6, np.arange(rgb.shape[0])[:, None], np.arange(rgb.shape[1])[None, :]]
+    return np.clip(result.astype(np.float32), 0.0, 1.0)
+
+
+def _adaptive_sat_gain(scene, base_sat):
+    """Calculate adaptive saturation based on image complexity."""
+    color_complexity = scene.get("saturation", 128) / 255.0
+    if color_complexity > 150 / 255.0:
+        return base_sat * 0.85
+    return base_sat
+
+
+def _protect_highlights(rgb):
+    """Compress only the upper tonal range while leaving midtones intact."""
+    threshold = GradingConstants.HIGHLIGHT_THRESHOLD
+    excess = np.clip(rgb - threshold, 0.0, 1.0)
+    # A smooth rolloff avoids a visible hard boundary around the threshold.
+    compressed = threshold + excess * GradingConstants.HIGHLIGHT_ROLLOFF_FACTOR
+    return np.where(rgb > threshold, compressed, rgb).astype(np.float32)
+
+
+def grade_variant_a(base, scene=None, intent=None):
+    """Premium Natural grading (Variant A)."""
+    scene = scene or analyze_scene(base)
+    out = base.astype(np.float32)
+
+    # Get intent or use scene defaults
+    if intent:
+        contrast = float(intent.get("contrast", 0)) / 2.0 + GradingConstants.NATURAL_CONTRAST_BASE
+        sat = float(intent.get("saturation", 0)) / 2.0 + GradingConstants.NATURAL_SAT_BASE
+    else:
+        p = scene.get("natural", {})
+        contrast = p.get("contrast", GradingConstants.NATURAL_CONTRAST_BASE)
+        sat = p.get("sat", GradingConstants.NATURAL_SAT_BASE)
+
+    # Contrast
+    contrast_gain = contrast / 10.0 + 1.0
+    out = np.clip((out - 0.5) * contrast_gain + 0.5, 0, 1)
+
+    # Highlight protection
+    out = _protect_highlights(out)
+
+    # Saturation (adaptive)
+    sat_gain = _adaptive_sat_gain(scene, 1.0 + sat / GradingConstants.SATURATION_DIVISOR)
+    if sat > 0:
+        out = _hsv_float_sat(out, sat_gain)
+
+    # Apply the model's warmth nudge after the natural grade. Positive values
+    # warm the image, negative values cool it.
+    if intent:
+        warmth = float(intent.get("warmth", 0.0))
+        out[..., 0] = np.clip(out[..., 0] + 0.04 * warmth, 0, 1)
+        out[..., 2] = np.clip(out[..., 2] - 0.04 * warmth, 0, 1)
+
+    return np.clip(out, 0, 1)
+
+
+def grade_variant_b(base, scene=None, intent=None):
+    """Premium Cinematic grading (Variant B) - Enhanced."""
+    scene = scene or analyze_scene(base)
+    out = base.astype(np.float32)
+
+    # Enhanced cinematic parameters
+    if intent:
+        contrast = max(1, float(intent.get("contrast", 0)) / 2.0) + 2
+        sat = max(1, float(intent.get("saturation", 0)) / 2.0) + 2
+    else:
+        p = scene.get("cinematic", {})
+        contrast = p.get("contrast", GradingConstants.CINEMATIC_CONTRAST_BASE)
+        sat = p.get("sat", GradingConstants.CINEMATIC_SAT_BASE)
+
+    # Enhanced contrast (S-curve)
+    c = contrast / 12.0 + 1.0
+    out = np.clip((out - 0.5) * c + 0.5, 0, 1)
+
+    # Teal-orange look (enhanced)
+    p = scene.get("cinematic", {})
+    warm_mult = p.get("warm_mult", GradingConstants.CINEMATIC_TEAL_ORANGE_ENHANCED) / 100.0
+    cool_mult = p.get("cool_shadows", 0.85)
+
+    lum = out.mean(axis=2, keepdims=True)
+    warm_mask = np.clip(lum / (0.8 + 1e-6), 0, 1)
+    cool_mask = 1.0 - warm_mask
+
+    # Enhanced warmth in highlights, cool in shadows
+    out[..., 0] = np.clip(out[..., 0] * (1 + warm_mult * warm_mask[..., 0] - (1-cool_mult) * cool_mask[..., 0]), 0, 1)
+    out[..., 2] = np.clip(out[..., 2] * (1 - warm_mult * warm_mask[..., 0] + (1-cool_mult) * cool_mask[..., 0]), 0, 1)
+
+    # Saturation (adaptive)
+    sat_gain = _adaptive_sat_gain(scene, 1.0 + sat / GradingConstants.SATURATION_DIVISOR)
+    if sat > 0:
+        out = _hsv_float_sat(out, sat_gain)
+
+    if intent:
+        warmth = float(intent.get("warmth", 0.0))
+        out[..., 0] = np.clip(out[..., 0] + 0.04 * warmth, 0, 1)
+        out[..., 2] = np.clip(out[..., 2] - 0.04 * warmth, 0, 1)
+
+    # Teal-orange can push highlights back into clipping after the earlier
+    # contrast step, so apply the same smooth rolloff at the end as well.
+    out = _protect_highlights(out)
+
+    return np.clip(out, 0, 1)
+
+
+# ============================================================================
+# Cropping & QA
+# ============================================================================
+
+def _subject_anchor(rgb, plan):
+    """Return a normalized (x, y) anchor for the crop window, or None.
+
+    Resolution order: a ``subject_box`` supplied by the vision model wins,
+    then local face detection, then None (caller falls back to the legacy
+    centre/0.45 crop).
+    """
+    plan = plan or {}
+
+    box = plan.get("subject_box")
+    if isinstance(box, (list, tuple)) and len(box) == 4:
+        try:
+            x, y, w, h = [float(c) for c in box]
+            w = max(w, 1e-3)
+            h = max(h, 1e-3)
+            return (min(0.98, max(0.02, x + w / 2.0)),
+                    min(0.98, max(0.02, y + h / 2.0)))
+        except (TypeError, ValueError):
+            pass
+
+    anchor = _face_anchor(rgb)
+    if anchor is not None:
+        return anchor
+
+    return None
+
+
+def _face_anchor(rgb):
+    """Detect faces and return the centroid of the group, or None."""
+    try:
+        cascade = cv2.CascadeClassifier(
+            cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        )
+        gray = cv2.cvtColor(
+            np.clip(rgb, 0, 1).astype(np.float32) * 255.0, cv2.COLOR_RGB2GRAY
+        ).astype(np.uint8)
+        faces = cascade.detectMultiScale(gray, 1.1, 5, minSize=(24, 24))
+        if len(faces) == 0:
+            return None
+
+        h, w = rgb.shape[:2]
+        # Use the centre of the single most prominent face (largest area).
+        x, y, fw, fh = max(faces, key=lambda f: f[2] * f[3])
+        return ((x + fw / 2.0) / w, (y + fh / 2.0) / h)
+    except Exception:
+        return None
+
+
+def _crop_to_ratio(rgb_float, crop_target, anchor=None):
+    """Crop to target ratio, keeping an optional subject anchor in frame."""
+    ratios = {
+        "4:5": (4, 5), "4/5": (4, 5),
+        "9:16": (9, 16), "9/16": (9, 16),
+        "1:1": (1, 1)
+    }
+    num, den = ratios.get(crop_target, (4, 5))
+    target = num / den
+    h, w = rgb_float.shape[:2]
+    cur = w / h
+
+    if anchor is None:
+        ax, ay = 0.5, 0.45  # legacy behaviour
+    else:
+        ax, ay = float(anchor[0]), float(anchor[1])
+
+    if cur > target:
+        nw = int(h * target)
+        nw = max(1, min(nw, w))
+        cx = float(np.clip(ax, 0.05, 0.95)) * w
+        x0 = int(np.clip(cx - nw / 2.0, 0, w - nw))
+        cropped = rgb_float[:, x0:x0 + nw]
+    else:
+        nh = int(w / target)
+        nh = max(1, min(nh, h))
+        cy = float(np.clip(ay, 0.05, 0.95)) * h
+        y0 = int(np.clip(cy - nh / 2.0, 0, h - nh))
+        cropped = rgb_float[y0:y0 + nh]
+
+    return np.ascontiguousarray(cropped)
+
+
+def technical_qa(rgb_float, crop_target):
+    """Quality assurance check."""
+    h, w = rgb_float.shape[:2]
+    ratios = {
+        "4:5": (4, 5), "4/5": (4, 5),
+        "9:16": (9, 16), "9/16": (9, 16),
+        "1:1": (1, 1)
+    }
+    num, den = ratios.get(crop_target, (4, 5))
+
+    # Report the percentage of pixels with at least one clipped channel.  Using
+    # ``sum()`` over RGB channels makes the result exceed 100% on solid black or
+    # white images and does not describe pixel clipping.
+    high_clip = float(
+        (rgb_float > GradingConstants.HIGHLIGHT_CLIP_THRESHOLD).any(axis=2).mean()
+    )
+    low_clip = float(
+        (rgb_float < GradingConstants.SHADOW_CLIP_THRESHOLD).any(axis=2).mean()
+    )
+
+    checks = {
+        "size": f"{w}x{h}",
+        "ratio_ok": bool(abs(w / h - num / den) < GradingConstants.QA_RATIO_TOLERANCE),
+        "clipped_high_pct": round(high_clip * 100, 2),
+        "clipped_low_pct": round(low_clip * 100, 2),
+        "brightness_mean": round(float(rgb_float.mean()), 3),
+    }
+
+    ok = checks["ratio_ok"] and high_clip < (GradingConstants.QA_HIGHLIGHT_CLIP_MAX_PCT / 100.0)
+    return {"checks": checks, "pass": bool(ok)}
+
+
+# ============================================================================
+# Main Processing Functions (Simplified)
+# ============================================================================
+
+def build_editing_plan(rgb, crop_target="4:5", src=None, scene_override=None):
+    """Build editing plan from scene analysis.
+
+    When `scene_override` is supplied (a plan from the vision model) its
+    semantic judgement wins; the local heuristic below is the fallback for when
+    vision is disabled or unreachable.
+    """
+    crop_target = crop_target.replace("/", ":")
+    if crop_target not in ("4:5", "9:16", "1:1"):
+        crop_target = "4:5"
+
+    if scene_override:
+        plan = dict(scene_override)
+        plan.setdefault("preserve_region", {"x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0})
+        plan["style_a"] = "premium_natural"
+        plan["style_b"] = "premium_cinematic"
+        plan["crop_target"] = crop_target
+        return plan
+
+    scene = analyze_scene(rgb)
+    tags = scene["tags"]
+
+    # Determine scene type
+    scene_type = "general"
+    main_subject = "subject"
+    subject_imp = 0.8
+    env_imp = 0.7
+    sky_imp = 0.3
+
+    if "night" in tags:
+        scene_type, main_subject, subject_imp, env_imp, sky_imp = "night", "subject", 0.85, 0.5, 0.2
+    elif "sunset_warm" in tags:
+        scene_type = "sunset"
+        main_subject = "landscape"
+        subject_imp, env_imp, sky_imp = 0.7, 0.9, 0.9
+    elif "product" in tags:
+        scene_type = "product"
+        subject_imp = 0.9
+
+    return {
+        "scene_type": scene_type,
+        "main_subject": main_subject,
+        "subject_importance": subject_imp,
+        "environment_importance": env_imp,
+        "sky_importance": sky_imp,
+        "preserve_colors": [],
+        "preserve_region": {"x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0},
+        "style_a": "premium_natural",
+        "style_b": "premium_cinematic",
+        "crop_target": crop_target,
+        "provider": "heuristic",
+    }
+
+
+def _unique_output_stem(out_root, stem):
+    """Return a stem that will not overwrite existing media outputs."""
+    candidate = stem
+    index = 2
+    suffixes = ("_A.jpg", "_B.jpg", "_A.mp4", "_B.mp4")
+    while any(
+        (Path(out_root) / folder / f"{candidate}{suffix}").exists()
+        for folder in ("POSTS", "STORIES", "REELS")
+        for suffix in suffixes
+    ):
+        candidate = f"{stem}_{index}"
+        index += 1
+    return candidate
+
+
+def process_photo(cfg, src, out_root, output_stem=None):
+    """Process single photo."""
+    logger = get_logger()
+    export_mgr = ExportManager(cfg)
+
+    stem = output_stem or Path(src).stem
+    rgb = load_rgb(src)
+    results = []
+
+    # Apply the technical baseline before semantic analysis and creative
+    # grading, so exposure and white balance are consistent across variants.
+    rgb, technical_params = normalize_technical(rgb)
+
+    # Analyse once per photo, not once per format: the scene does not change
+    # between POSTS and STORIES, and each call costs a request.
+    scene_plan = vision.analyze(Path(src)) if vision.is_enabled() else None
+    if scene_plan:
+        logger.info(
+            f"Vision: {scene_plan['scene_type']} | {scene_plan['main_subject']}"
+        )
+
+    for fmt in cfg.get("produce_formats", ["POSTS", "STORIES"]):
+        ratio = "9:16" if fmt == "STORIES" else "4:5"
+
+        # Get editing plan
+        plan = build_editing_plan(
+            rgb, crop_target=ratio, src=src, scene_override=scene_plan
+        )
+
+        # Crop and grade. Keep the scene's subject in frame when the vision
+        # model supplied a box or a local face was detected.
+        crop = _crop_to_ratio(rgb, ratio, anchor=_subject_anchor(rgb, plan))
+        # The vision model supplies a bounded grading nudge.  Keep the local
+        # scene defaults as the base and apply the model intent on top.
+        intent = plan.get("grading_intent") if scene_plan else None
+        a = grade_variant_a(crop, intent=intent)
+        b = grade_variant_b(crop, intent=intent)
+
+        # Export
+        out_dir = out_root / fmt
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        files = {
+            "A": export_mgr.save_variant(
+                a, out_dir, stem, "A",
+                output_width=cfg.get(
+                    "output_width_story" if fmt == "STORIES" else "output_width_post", 1080
+                ),
+            ),
+            "B": export_mgr.save_variant(
+                b, out_dir, stem, "B",
+                output_width=cfg.get(
+                    "output_width_story" if fmt == "STORIES" else "output_width_post", 1080
+                ),
+            ),
+        }
+
+        if not all(export_mgr.verify_exports(exported) for exported in files.values()):
+            raise RuntimeError(f"Export verification failed for {stem} ({fmt})")
+
+        qa = {"A": technical_qa(a, ratio), "B": technical_qa(b, ratio)}
+        m = export_mgr.save_manifest(out_dir, stem, plan, files, qa)
+
+        logger.info(f"[{fmt}] A/B exported | provider={plan.get('provider')}")
+        results.append({
+            "fmt": fmt,
+            "files": files,
+            "manifest": str(m),
+            "plan": plan,
+            "technical": technical_params,
+        })
+
+    return results
+
+
+@functools.lru_cache(maxsize=1)
+def _nvenc_available():
+    """True only when NVENC actually works end-to-end.
+
+    An encoder being listed in `ffmpeg -encoders` is not enough: a too-old
+    NVIDIA driver still lists h264_nvenc but fails to open it at runtime. So
+    do a one-frame micro-encode probe and trust the exit code.
+    """
+    try:
+        r = subprocess.run(
+            [
+                "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                "-f", "lavfi", "-i", "color=c=black:s=1280x720:d=0.1:r=1",
+                "-frames:v", "1", "-c:v", "h264_nvenc", "-f", "null", "-",
+            ],
+            capture_output=True, text=True, timeout=60,
+        )
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
+def _build_reel_command(
+    cfg, src, out, variant, selected_segments=None, include_audio=True, use_gpu=False
+):
+    """Build an Instagram/mobile-compatible ffmpeg export command."""
+    # Keep paths relative to the project working directory.  The project lives
+    # on a mapped S: drive, which is visible to Python but not reliably visible
+    # to child native processes when passed as an absolute mapped-drive path.
+    src = str(Path(src))
+    out = str(Path(out))
+    base = "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"
+    contrast = 2.5 if variant == "B" else 1.5
+    eq = f"eq=contrast={1 + contrast / 10.0}:saturation=1.3"
+
+    command = ["ffmpeg", "-y", "-i", str(src)]
+    if selected_segments:
+        from .video_tools import build_segment_filter
+
+        filter_graph = build_segment_filter(
+            selected_segments, base + "," + eq, include_audio=include_audio
+        )
+        command += ["-filter_complex", filter_graph, "-map", "[outv]"]
+        if include_audio:
+            command += ["-map", "[outa]"]
+    else:
+        command += ["-map", "0:v:0"]
+        if include_audio:
+            command += ["-map", "0:a:0?"]
+        command += ["-vf", base + "," + eq]
+
+    if use_gpu:
+        codec = ["-c:v", "h264_nvenc", "-preset", "p5", "-rc", "vbr", "-cq", "18", "-b:v", "0", "-profile:v", "main", "-level", "4.1"]
+    else:
+        codec = ["-c:v", "libx264", "-profile:v", "main", "-level", "4.1", "-preset", "fast", "-crf", "18"]
+
+    return command + [
+        "-t", str(cfg.get("reel_max_duration", 30)),
+        "-r", "30",
+        *codec,
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-ar", "48000", "-ac", "2", "-b:a", "192k",
+        "-movflags", "+faststart", "-shortest", str(out),
+    ]
+
+
+def _reel_part_path(final_path):
+    """Return the hidden/incomplete path used during reel export."""
+    final_path = Path(final_path)
+    return final_path.with_name(f"{final_path.stem}.part{final_path.suffix}")
+
+
+def _save_reel_manifest(
+    manifest_dir,
+    stem,
+    source_duration,
+    selected_segments,
+    provider,
+    outputs,
+):
+    """Save the editing decision next to the other machine-readable manifests."""
+    manifest_dir = Path(manifest_dir)
+    manifest_dir.mkdir(parents=True, exist_ok=True)
+    data = {
+        "generated": __import__("time").strftime("%Y-%m-%d %H:%M:%S"),
+        "source_duration": round(float(source_duration), 3),
+        "output_duration": round(
+            sum(float(segment.get("take", 0.0)) for segment in selected_segments), 3
+        ) if selected_segments else None,
+        "selected_segments": selected_segments or [],
+        "editing_provider": provider,
+        "grading_variants": ["A", "B"],
+        "outputs": {key: str(value) for key, value in outputs.items()},
+    }
+    out_path = manifest_dir / f"{stem}_REELS_manifest.json"
+    out_path.write_text(
+        json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    return out_path
+
+
+def _select_reel_segments(cfg, segments, scores):
+    """Apply the Best-Cut setting and select clips when it is enabled."""
+    if not cfg.get("video_best_clips", True):
+        return None
+    from .video_tools import select_best_segments
+
+    return select_best_segments(
+        segments,
+        scores,
+        max_duration=float(cfg.get("reel_max_duration", 30)),
+        max_segments=cfg.get("best_clips_max_segments", 15),
+        max_clip_duration=float(cfg.get("reel_max_clip_duration", 8)),
+    )
+
+
+def process_reel(cfg, src, out_root, output_stem=None):
+    """Process video reel."""
+    from .video_tools import (
+        detect_scenes,
+        extract_segment_frame,
+        frame_quality_score,
+        has_audio_stream,
+        probe_duration,
+        select_best_segments,
+    )
+
+    logger = get_logger()
+
+    out_dir = out_root / "REELS"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stem = output_stem or Path(src).stem
+
+    # Scene detection. For short videos, preserve the complete recording; for
+    # longer videos, select the best moments after the representative frame
+    # has established the scene context.
+    duration = probe_duration(str(src)) or 0.0
+    segs = detect_scenes(str(src), max_segments=cfg.get("best_clips_max_segments", 15))
+    selected_segments = None
+
+    # Get plan from representative frame
+    frame = extract_segment_frame(str(src), 0.5) if segs else None
+    plan = None
+
+    if frame:
+        try:
+            rgb = load_rgb(frame)
+            # The extracted frame stands in for the video, so vision analyses it.
+            scene_plan = vision.analyze(Path(frame)) if vision.is_enabled() else None
+            if scene_plan:
+                logger.info(
+                    f"Vision: {scene_plan['scene_type']} | {scene_plan['main_subject']}"
+                )
+            plan = build_editing_plan(
+                rgb, crop_target="9:16", src=frame, scene_override=scene_plan
+            )
+        except Exception as e:
+            logger.warn(f"Frame analysis failed, using defaults: {e}")
+            plan = {"scene_type": "general", "provider": "heuristic"}
+        finally:
+            try:
+                os.unlink(frame)
+            except OSError:
+                pass
+
+    if not plan:
+        plan = {"scene_type": "general", "provider": "heuristic"}
+
+    if (
+        cfg.get("video_best_clips", True)
+        and duration > float(cfg.get("reel_max_duration", 30))
+        and segs
+    ):
+        samples = []
+        temp_frames = []
+        try:
+            for number, (start, end) in enumerate(segs, 1):
+                frame_path = extract_segment_frame(str(src), (start + end) / 2.0)
+                if frame_path:
+                    temp_frames.append(frame_path)
+                    samples.append((number, frame_path, start, end))
+
+            sampled_segments = [
+                (start, end) for _, _, start, end in samples
+            ]
+            sample_numbers = [number for number, _, _, _ in samples]
+            local_scores = [frame_quality_score(frame_path) for _, frame_path, _, _ in samples]
+            vision_scores = vision.rank_video_segments(samples) if vision.is_enabled() else None
+            scores = []
+            for number, local_score in zip(sample_numbers, local_scores):
+                model_score = (vision_scores or {}).get(number, {}).get("score", local_score)
+                scores.append(0.35 * local_score + 0.65 * float(model_score))
+
+            selected_segments = _select_reel_segments(cfg, sampled_segments, scores)
+            if selected_segments:
+                plan["selected_segments"] = selected_segments
+                plan["segment_scores"] = scores
+                plan["segment_reasons"] = [
+                    (vision_scores or {}).get(number, {}).get("reason", "local quality")
+                    for number in sample_numbers
+                ]
+                logger.info(f"Best-Cut selected {len(selected_segments)} segments")
+        finally:
+            for frame_path in temp_frames:
+                try:
+                    os.unlink(frame_path)
+                except OSError:
+                    pass
+
+    logger.info(f"[Reel] {plan.get('scene_type')} | processing...")
+
+    # Video export (same as original)
+    for variant in ("A", "B"):
+        out = out_dir / f"{stem}_{variant}.mp4"
+        part = _reel_part_path(out)
+        part.unlink(missing_ok=True)
+        cmd = _build_reel_command(
+            cfg,
+            src,
+            part,
+            variant,
+            selected_segments=selected_segments,
+            include_audio=has_audio_stream(str(src)),
+            use_gpu=_nvenc_available(),
+        )
+
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        if r.returncode != 0:
+            logger.error(f"Reel {variant} failed", error=Exception(r.stderr[-200:]))
+            part.unlink(missing_ok=True)
+            raise RuntimeError(f"Reel {variant} export failed for {src.name}")
+        else:
+            part.replace(out)
+            logger.info(f"[{variant}] -> {out.name}")
+
+    manifest_dir = cfg.get(
+        "manifests_folder", out_root.parent / "_SYSTEM" / "manifests"
+    )
+    _save_reel_manifest(
+        manifest_dir,
+        stem,
+        source_duration=duration,
+        selected_segments=selected_segments or [],
+        provider="best_cut" if selected_segments else "full_video",
+        outputs={
+            variant: out_dir / f"{stem}_{variant}.mp4"
+            for variant in ("A", "B")
+        },
+    )
+    logger.info("Reels complete (A/B variants)")
+
+
+def run_on_folder(cfg=None, batch_limit=None):
+    """Main batch processing."""
+    logger = get_logger()
+
+    cfg = cfg or Config.load()
+    inp = Path(cfg["input_folder"])
+    out = Path(cfg["output_folder"])
+
+    for sub in cfg.get("produce_formats", ["POSTS", "STORIES"]) + ["REELS"]:
+        (out / sub).mkdir(parents=True, exist_ok=True)
+
+    photo_ext = PHOTO_EXT
+    video_ext = VIDEO_EXT
+    all_ext = photo_ext | video_ext
+
+    files = sorted([p for p in inp.iterdir() if p.is_file() and p.suffix.lower() in all_ext])
+    if batch_limit:
+        files = files[:batch_limit]
+
+    if not files:
+        logger.info("No files in input folder")
+        return {"ok": [], "failed": [], "report": None}
+
+    pipeline = Pipeline(cfg)
+
+    ok = []
+    failed = []
+    skipped = []
+
+    for src in files:
+        kind = "VIDEO" if src.suffix.lower() in video_ext else "PHOTO"
+
+        # Identical bytes already archived: skip the expensive grading + vision
+        # call and drop the extra copy instead of accumulating _2/_3 files.
+        if _already_archived(cfg, src):
+            skipped.append(src.name)
+            logger.info(f"Skipping duplicate (already archived): {src.name}")
+            src.unlink(missing_ok=True)
+            continue
+
+        logger.info(f"Processing: {src.name} ({kind})")
+        output_stem = _unique_output_stem(out, src.stem)
+
+        try:
+            if kind == "PHOTO":
+                process_photo(cfg, src, out, output_stem=output_stem)
+            else:
+                process_reel(cfg, src, out, output_stem=output_stem)
+
+            # Archive original
+            if cfg.get("auto_move_sources", True):
+                if not pipeline.archive_source(src):
+                    raise RuntimeError(f"Archiving failed for {src.name}; original kept in input")
+
+            ok.append(src.name)
+            logger.success(f"Completed: {src.name}")
+        except Exception as e:
+            failed.append((src.name, str(e)))
+            logger.error(f"Failed to process: {src.name}", error=e)
+
+    report = _write_batch_report(cfg, ok, failed, skipped)
+    if failed:
+        logger.warn(f"Batch finished: {len(ok)} OK, {len(failed)} failed, {len(skipped)} skipped")
+    else:
+        logger.success(f"Batch finished: {len(ok)} OK, 0 failed, {len(skipped)} skipped")
+
+    return {"ok": ok, "failed": failed, "skipped": skipped, "report": str(report)}
+
+
+def _build_batch_report_text(ok, failed, skipped=None):
+    """Render a human-readable batch summary."""
+    skipped = skipped or []
+    lines = [
+        "IG-AUTOMATIK Batch-Report",
+        f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}",
+        "",
+        f"OK: {len(ok)}",
+        f"Failed: {len(failed)}",
+        f"Skipped (duplicate): {len(skipped)}",
+        "",
+    ]
+    if ok:
+        lines.append("Erfolgreich:")
+        for name in ok:
+            lines.append(f"  - {name}")
+    if skipped:
+        lines.append("")
+        lines.append("Duplikate übersprungen:")
+        for name in skipped:
+            lines.append(f"  - {name}")
+    if failed:
+        lines.append("")
+        lines.append("Fehler:")
+        for name, err in failed:
+            lines.append(f"  - {name}: {err}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _write_batch_report(cfg, ok, failed, skipped=None):
+    """Persist the batch report next to the manifests."""
+    manifests = Path(
+        cfg.get("manifests_folder")
+        or (Path(cfg.get("output_folder", ".")).parent / "_SYSTEM" / "manifests")
+    )
+    reports_dir = manifests.parent / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    path = reports_dir / ("batch_report_" + time.strftime("%Y%m%d_%H%M%S") + ".txt")
+    path.write_text(_build_batch_report_text(ok, failed, skipped), encoding="utf-8")
+    return path
+
+
+def _file_hash(path, chunk=1024 * 1024):
+    """SHA-256 of a file, streamed so large videos stay cheap on memory."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for block in iter(lambda: handle.read(chunk), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _already_archived(cfg, src):
+    """True when a byte-identical copy already lives in the archive folder."""
+    archive = Path(
+        cfg.get("processed_folder")
+        or (Path(cfg.get("output_folder", ".")).parent / "3_ARCHIV")
+    )
+    if not archive.is_dir():
+        return False
+    try:
+        size = src.stat().st_size
+    except OSError:
+        return False
+
+    candidates = [
+        p for p in archive.iterdir()
+        if p.is_file() and p.stat().st_size == size
+    ]
+    if not candidates:
+        return False
+
+    src_hash = _file_hash(src)
+    return any(_file_hash(p) == src_hash for p in candidates)
+
+
+if __name__ == "__main__":
+    cfg = Config.load()
+    run_on_folder(cfg)

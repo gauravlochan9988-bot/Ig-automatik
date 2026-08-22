@@ -1,0 +1,14 @@
+# IG-AUTOMATIK Dependencies
+
+# Image processing
+numpy>=1.21.0
+opencv-python>=4.5.0
+Pillow>=8.0.0
+pillow-heif>=0.12.0
+
+# Folder monitoring
+watchdog>=2.2.0
+
+# Vision API (OpenRouter) - called over plain urllib, but needs a CA bundle:
+# a framework Python without "Install Certificates.command" has no trust store.
+certifi>=2023.0.0

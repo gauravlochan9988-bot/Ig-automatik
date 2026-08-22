@@ -1,0 +1,28 @@
+# ===== Secrets (NEVER commit) =====
+.env
+
+# ===== User data & originals (private, large) =====
+1_EINGANG/
+2_FERTIG/
+3_ARCHIV/
+
+# ===== Python =====
+.venv-win/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ===== Runtime output (regenerated automatically) =====
+_SYSTEM/logs/
+_SYSTEM/reports/
+_SYSTEM/manifests/
+_SYSTEM/watchdog.lock
+
+# Machine-specific config (absolute paths, rewritten on every run)
+_SYSTEM/config/config.json
+
+# ===== OS junk =====
+.DS_Store
+Thumbs.db
+desktop.ini
