@@ -95,8 +95,12 @@ class ExportManager:
 
         if self.cfg.get("produce_masters", True):
             master_path = self.save_master_png(rgb_float, stem, variant, format_name)
-            if master_path:
-                out_files["master"] = master_path
+            # A master-first workflow is transactional: never deliver a social
+            # derivative when the required lossless master did not land.
+            if not master_path:
+                self.logger.error("Required master export failed; social derivative withheld", stem=stem)
+                return {}
+            out_files["master"] = master_path
 
         if self.cfg.get("produce_ig", True):
             rgb8 = np.clip(rgb_float * 255, 0, 255).astype(np.uint8)

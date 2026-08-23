@@ -25,14 +25,19 @@ def find_project_root(start: Path) -> Path:
     start = Path(start).resolve()
 
     for candidate in (start, *start.parents):
-        if any((candidate / marker).is_dir() for marker in MARKER_FOLDERS):
+        # A valid project root has the whole user-facing layout. Matching only
+        # one marker (for example a test-created 3_ARCHIV/MASTERS) can wrongly
+        # turn _SYSTEM/app into a second project root.
+        if all((candidate / marker).is_dir() for marker in MARKER_FOLDERS):
             return candidate
 
     # Nothing created yet (fresh checkout): a package inside _SYSTEM still means
-    # the root is one level up, otherwise the working folders would be created
-    # inside _SYSTEM.
-    if start.name == SYSTEM_FOLDER:
-        return start.parent
+    # the root is one level above _SYSTEM, otherwise working folders would be
+    # created inside _SYSTEM/app. Handle both the _SYSTEM folder itself and any
+    # descendant such as _SYSTEM/app/ig_automatik.
+    for candidate in (start, *start.parents):
+        if candidate.name == SYSTEM_FOLDER:
+            return candidate.parent
 
     return start
 

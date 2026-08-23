@@ -63,6 +63,20 @@ class VideoToolsTests(unittest.TestCase):
         self.assertIn("-c:a", cmd)
         self.assertIn("aac", cmd)
 
+    def test_ken_burns_emits_one_output_frame_per_source_frame(self):
+        graph = video_tools.build_segment_filter(
+            [{"start": 0.0, "end": 4.0}],
+            "scale=1080:1920,crop=1080:1920",
+            include_audio=False,
+            ken_burns=True,
+            output_width=1080,
+            output_height=1920,
+            output_fps=24,
+        )
+        # zoompan's d is output frames PER input frame, never total duration.
+        self.assertIn("zoompan=z='min(zoom+0.0015,1.15)':d=1:s=1080x1920:fps=24", graph)
+        self.assertIn("fps=24,setsar=1,format=yuv420p", graph)
+
 
 if __name__ == "__main__":
     unittest.main()

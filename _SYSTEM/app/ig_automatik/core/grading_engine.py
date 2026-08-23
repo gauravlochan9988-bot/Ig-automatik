@@ -929,10 +929,13 @@ def _build_reel_command(
             command += ["-map", "0:a:0?"]
         vf_chain = [base, color_filter]
         if ken_burns:
+            # `d=1` preserves source timing; any larger value repeats frames
+            # and turns a short clip into minutes of video.
             vf_chain.insert(
                 0,
-                f"zoompan=z='min(zoom+{zoom_speed},1.15)':d={output_fps * int(cfg.get('reel_max_duration', 30))}:s={output_width}x{output_height}:fps={output_fps}",
+                f"zoompan=z='min(zoom+{zoom_speed},1.15)':d=1:s={output_width}x{output_height}:fps={output_fps}",
             )
+        vf_chain.extend([f"fps={output_fps}", "setsar=1", "format=yuv420p"])
         command += ["-vf", ",".join(vf_chain)]
 
     # 1080x1920 social delivery is H.264 Level 4.1. The higher-resolution

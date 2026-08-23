@@ -32,11 +32,20 @@ class GradingEngineTests(unittest.TestCase):
     def test_project_root_is_found_from_a_flat_layout(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "1_EINGANG").mkdir()
+            for marker in ("1_EINGANG", "2_FERTIG", "3_ARCHIV"):
+                (root / marker).mkdir()
 
             self.assertEqual(
                 project_paths.find_project_root(root).resolve(), root.resolve()
             )
+
+    def test_single_archive_folder_does_not_become_a_false_project_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            nested = root / "_SYSTEM" / "app"
+            (nested / "3_ARCHIV" / "MASTERS").mkdir(parents=True)
+
+            self.assertNotEqual(project_paths.find_project_root(nested), nested.resolve())
 
     def test_fresh_system_folder_resolves_to_its_parent(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -702,6 +711,26 @@ class GradingEngineTests(unittest.TestCase):
             self.assertEqual(ig.shape[1], 1080)
             self.assertTrue(files["master"].name.endswith("_POSTS_B_master.png"))
             self.assertTrue(files["master"].is_relative_to(masters_dir))
+
+    def test_master_failure_stops_social_derivative_when_masters_required(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_dir = root / "2_FERTIG" / "POSTS"
+            output_dir.mkdir(parents=True)
+            cfg = {
+                "export_quality": 95,
+                "output_width_post": 1080,
+                "produce_ig": True,
+                "produce_masters": True,
+                "masters_folder": str(root / "3_ARCHIV" / "MASTERS"),
+            }
+            manager = engine.ExportManager(cfg)
+            rgb = np.full((100, 100, 3), 0.42, dtype=np.float32)
+            with patch.object(manager, "save_master_png", return_value=None):
+                files = manager.save_variant(rgb, output_dir, "asset", "A", format_name="POSTS")
+
+            self.assertEqual(files, {})
+            self.assertFalse((output_dir / "asset_A.jpg").exists())
 
     def test_uint16_images_are_scaled_to_unit_range(self):
         with tempfile.TemporaryDirectory() as tmp:

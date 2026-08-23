@@ -255,11 +255,13 @@ def build_segment_filter(
         v_chain = [f"trim=start={start:.3f}:end={end:.3f}", "setpts=PTS-STARTPTS"]
         
         if ken_burns:
-            # Dynamic slow push-in zoompan
+            # zoompan's `d` is output frames PER input frame — it must be 1
+            # for temporal-duration preservation. The zoom evolves per frame.
             v_chain.append(
-                f"zoompan=z='min(zoom+{zoom_speed},1.15)':d={max(1, int(duration * output_fps))}:s={int(output_width)}x{int(output_height)}:fps={int(output_fps)}"
+                f"zoompan=z='min(zoom+{zoom_speed},1.15)':d=1:s={int(output_width)}x{int(output_height)}:fps={int(output_fps)}"
             )
-            
+
+        v_chain.extend([f"fps={int(output_fps)}", "setsar=1", "format=yuv420p"])
         v_chain.append(video_filter)
         parts.append(f"[{video_labels[index] if len(segments) > 1 else '0:v'}]{','.join(v_chain)}[v{index}]")
 
