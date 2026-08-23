@@ -41,6 +41,7 @@ select { appearance:none; border:1px solid #35415a; border-radius:10px; backgrou
 .preview { display:block; width:100%; aspect-ratio:4/5; object-fit:cover; border-radius:9px; background:#080b12; }
 .card-actions { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px; }
 .download,.share { display:block; width:100%; min-width:0; overflow-wrap:anywhere; word-break:break-word; white-space:normal; text-align:center; padding:9px 5px; background:#293449; color:#e8ecf5; text-decoration:none; font-size:11px; line-height:1.25; }
+.busy { opacity:.6; pointer-events:none; }
 .share { border:1px solid #35415a; }
 .download.accent { background:#4f46e5; }
 .master-actions { display:block; margin-top:8px; border-top:1px solid #273147; padding-top:8px; }

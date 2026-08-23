@@ -188,7 +188,16 @@ function formatLabel(format) {
   return { POSTS: 'Instagram-Post · 4:5', STORIES: 'Story · 9:16', REELS: 'Reel · 9:16' }[format] || format;
 }
 
-async function shareOutput(url, filename, video = false) {
+async function shareOutput(url, filename, video = false, trigger = null) {
+  if (trigger?.dataset.busy === 'true') return;
+  const originalText = trigger?.textContent;
+  if (trigger) {
+    trigger.dataset.busy = 'true';
+    trigger.setAttribute('aria-busy', 'true');
+    trigger.classList.add('busy');
+    if ('disabled' in trigger) trigger.disabled = true;
+    trigger.textContent = 'Wird vorbereitet …';
+  }
   try {
     const response = await fetch(url);
     if (!response.ok) throw new Error('Datei konnte nicht geladen werden.');
@@ -201,6 +210,14 @@ async function shareOutput(url, filename, video = false) {
     openMediaViewer({ downloadUrl: url, previewUrl: url, filename, video });
   } catch (error) {
     if (error.name !== 'AbortError') alert(error.message || 'Sichern fehlgeschlagen.');
+  } finally {
+    if (trigger) {
+      delete trigger.dataset.busy;
+      trigger.removeAttribute('aria-busy');
+      trigger.classList.remove('busy');
+      if ('disabled' in trigger) trigger.disabled = false;
+      trigger.textContent = originalText;
+    }
   }
 }
 
@@ -258,7 +275,7 @@ function openMediaViewer({ downloadUrl, previewUrl, filename, video = false }) {
   download.href = downloadUrl;
   download.download = safeName;
   const share = root.querySelector('.viewer-share');
-  share.onclick = () => shareOutput(downloadUrl, safeName, video);
+  share.onclick = () => shareOutput(downloadUrl, safeName, video, share);
   root.hidden = false;
   document.body.classList.add('viewer-open');
 }
@@ -267,7 +284,7 @@ function bindShareButtons() {
   document.querySelectorAll('.share').forEach(button => {
     button.addEventListener('click', () => {
       playSound('click');
-      shareOutput(button.dataset.url, button.dataset.name, button.dataset.video === 'true');
+      shareOutput(button.dataset.url, button.dataset.name, button.dataset.video === 'true', button);
     });
   });
   document.querySelectorAll('[data-download="true"]').forEach(link => {
@@ -280,6 +297,7 @@ function bindShareButtons() {
         link.dataset.url || link.href,
         link.dataset.name || 'Datei',
         link.dataset.video === 'true',
+        link,
       );
     });
   });
