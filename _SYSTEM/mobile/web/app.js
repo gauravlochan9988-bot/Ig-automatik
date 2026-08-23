@@ -195,7 +195,7 @@ function bindHistoryButtons() {
       button.disabled = true;
       try {
         const response = await fetch(`/api/jobs/${encodeURIComponent(button.dataset.jobId)}`, { method: 'DELETE' });
-        if (!response.ok) throw new Error(readError(await response.text()));
+        if (!response.ok) throw new Error(readError(await response.text(), 'Eintrag konnte nicht entfernt werden.'));
         await loadJobs(true);
       } catch (error) {
         button.disabled = false;
@@ -210,7 +210,7 @@ function bindHistoryButtons() {
       button.textContent = 'Wird vorbereitet …';
       try {
         const response = await fetch(`/api/jobs/${encodeURIComponent(button.dataset.jobId)}/reprocess`, { method: 'POST' });
-        if (!response.ok) throw new Error(readError(await response.text()));
+        if (!response.ok) throw new Error(readError(await response.text(), 'Erneute Verarbeitung konnte nicht gestartet werden.'));
         await loadJobs(true);
       } catch (error) {
         button.disabled = false;
@@ -364,9 +364,9 @@ function formatDate(value) {
   try { return new Date(value).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }); }
   catch { return ''; }
 }
-function readError(text) {
-  try { return JSON.parse(text).error || 'Upload fehlgeschlagen.'; }
-  catch { return 'Upload fehlgeschlagen.'; }
+function readError(text, fallback = 'Upload fehlgeschlagen.') {
+  try { return JSON.parse(text).error || fallback; }
+  catch { return fallback; }
 }
 function escapeHtml(value) {
   return String(value).replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
