@@ -53,6 +53,13 @@ class GradingEngineTests(unittest.TestCase):
         self.assertEqual(watch.LOCK.name, "watchdog.lock")
         self.assertEqual(watch.LOCK.parent.parent, watch.ROOT)
 
+    def test_logger_uses_project_system_log_dir_not_nested_app_system_dir(self):
+        from ig_automatik.utils import logging_utils
+        self.assertEqual(logging_utils.PROJECT_ROOT.name, "IG-AUTOMATIK")
+        log_system = logging_utils.system_dir(logging_utils.PROJECT_ROOT)
+        self.assertEqual(log_system.name, "_SYSTEM")
+        self.assertNotIn("_SYSTEM/app/_SYSTEM", str(log_system).replace("\\", "/"))
+
     def test_best_segments_are_selected_by_score_and_returned_chronologically(self):
         segments = [(0.0, 4.0), (10.0, 14.0), (20.0, 24.0), (30.0, 34.0)]
         scores = [0.2, 0.95, 0.8, 0.9]

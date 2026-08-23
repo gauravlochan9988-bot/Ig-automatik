@@ -8,8 +8,10 @@ from contextlib import contextmanager
 
 from ..config.paths import find_project_root, system_dir
 
-# Works for both layouts: package in the project root, or hidden in _SYSTEM.
-PROJECT_ROOT = find_project_root(Path(__file__).resolve().parent.parent.parent)
+# This module lives in _SYSTEM/app/ig_automatik/utils/. Start discovery at the
+# enclosing _SYSTEM folder; passing the utils path directly could otherwise
+# treat _SYSTEM/app as a fresh project and create _SYSTEM/app/_SYSTEM/logs.
+PROJECT_ROOT = find_project_root(Path(__file__).resolve().parents[3])
 
 
 class Logger:
