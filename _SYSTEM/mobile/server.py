@@ -89,6 +89,10 @@ class MobileBridge:
             raise FileNotFoundError(job_id)
         return json.loads(path.read_text(encoding="utf-8"))
 
+    def delete_job(self, job_id: str) -> None:
+        """Remove a job record when its upload did not complete."""
+        self._job_path(job_id).unlink(missing_ok=True)
+
     def save_upload(self, job: dict, source_stream, content_length: int | None) -> None:
         if content_length is not None and content_length < 0:
             raise ValueError("Ungültige Upload-Größe.")
@@ -310,7 +314,13 @@ class Handler(BaseHTTPRequestHandler):
         try:
             content_length = int(length_header) if length_header else None
             job = self.bridge.create_job(filename)
-            self.bridge.save_upload(job, self.rfile, content_length)
+            try:
+                self.bridge.save_upload(job, self.rfile, content_length)
+            except Exception:
+                # A failed or interrupted upload must not remain as a false
+                # waiting job in the mobile history.
+                self.bridge.delete_job(job["id"])
+                raise
             self.send_json({"job": self.bridge.snapshot(job)}, HTTPStatus.CREATED)
         except ValueError as exc:
             self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
