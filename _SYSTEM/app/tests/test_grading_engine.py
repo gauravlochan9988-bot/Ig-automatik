@@ -103,19 +103,24 @@ class GradingEngineTests(unittest.TestCase):
     def test_reel_manifest_records_editing_decision(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
+            from ig_automatik.core import templates
+            tpl = templates.get_template("miami_vibes")
             manifest = engine._save_reel_manifest(
                 root,
                 "clip",
                 source_duration=84.8,
-                selected_segments=[{"start": 2.0, "end": 6.0, "take": 4.0, "score": 0.91}],
+                selected_segments=[{"start": 2.0, "end": 6.5}],
                 provider="openrouter",
-                outputs={"A": root / "clip_A.mp4", "B": root / "clip_B.mp4"},
+                outputs={"A": "out_A.mp4", "B": "out_B.mp4"},
+                template=tpl,
+                lut_name="True Cinematic.cube",
             )
 
             data = __import__("json").loads(manifest.read_text(encoding="utf-8"))
             self.assertEqual(data["source_duration"], 84.8)
             self.assertEqual(data["selected_segments"][0]["start"], 2.0)
             self.assertEqual(data["editing_provider"], "openrouter")
+            self.assertEqual(data["template"], "Miami Summer Vibe")
 
     def test_video_best_clips_flag_controls_selection(self):
         self.assertEqual(
@@ -432,6 +437,29 @@ class GradingEngineTests(unittest.TestCase):
                 self.assertEqual(res["instagram"]["hashtags"], ["#MiamiLife", "#SunsetLovers", "#VacationMode"])
             finally:
                 f_path.unlink(missing_ok=True)
+
+    def test_apply_lut_to_photo_in_pipeline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "input.jpg"
+            Image.new("RGB", (100, 100), (120, 150, 180)).save(source)
+            cfg = {
+                "output_width_post": 1080,
+                "output_width_story": 1080,
+                "export_quality": 95,
+                "produce_ig": True,
+                "produce_archives": False,
+                "produce_formats": ["POSTS"],
+            }
+            
+            with patch.object(engine.vision, "is_enabled", return_value=False):
+                results = engine.process_photo(cfg, source, root / "output")
+                
+            self.assertEqual(len(results), 1)
+            self.assertTrue(Path(results[0]["files"]["A"]["ig"]).exists())
+            self.assertTrue(Path(results[0]["files"]["B"]["ig"]).exists())
+            if "lut_b" in results[0]["plan"]:
+                self.assertTrue(results[0]["plan"]["lut_b"].endswith(".cube"))
 
     def test_batch_report_text_lists_skipped_duplicates(self):
         text = engine._build_batch_report_text(["a.jpg"], [], ["b.jpg"])

@@ -279,8 +279,19 @@ def grade_variant_a(base, scene=None, intent=None):
     return np.clip(out, 0, 1)
 
 
-def grade_variant_b(base, scene=None, intent=None):
-    """Premium Cinematic grading (Variant B) - Enhanced."""
+def grade_variant_b(base, scene=None, intent=None, lut_path=None):
+    """Premium Cinematic grading (Variant B) - 3D LUT enhanced with heuristic fallback."""
+    # 1. If a 3D .cube LUT is provided, apply professional 3D LUT transformation
+    if lut_path and Path(lut_path).is_file():
+        try:
+            from . import lut_engine
+            table = lut_engine.load_cube_file(Path(lut_path))
+            graded = lut_engine.apply_lut(base, table)
+            # Apply adaptive highlight protection on top of LUT
+            return _protect_highlights(graded)
+        except Exception as exc:
+            get_logger().warn(f"Failed to apply LUT {lut_path}, falling back to algorithmic B grade: {exc}")
+
     scene = scene or analyze_scene(base)
     out = base.astype(np.float32)
 
@@ -335,6 +346,7 @@ def _grade_variant_with_qa(
     ratio="4:5",
     max_retries=2,
     threshold_pct=None,
+    lut_path=None,
 ):
     """Grade variant with automatic quality assurance feedback loop.
 
@@ -347,7 +359,6 @@ def _grade_variant_with_qa(
         threshold_pct = GradingConstants.QA_HIGHLIGHT_CLIP_MAX_PCT
 
     current_intent = dict(intent) if intent else {}
-    grade_fn = grade_variant_b if variant == "B" else grade_variant_a
 
     best_out = None
     best_qa = None
@@ -366,7 +377,16 @@ def _grade_variant_with_qa(
         else:
             current_intent = dict(intent) if intent else {}
 
-        out = grade_fn(crop, scene=scene, intent=current_intent if intent else None)
+        if variant == "B":
+            # On first attempt use LUT if available; on retries fallback to softer algorithmic B
+            active_lut = lut_path if attempt == 0 else None
+            out = grade_variant_b(
+                crop, scene=scene, intent=current_intent if intent else None, lut_path=active_lut
+            )
+        else:
+            out = grade_variant_a(
+                crop, scene=scene, intent=current_intent if intent else None
+            )
 
         # On retries, add extra highlight damping directly to the result if still clipping
         if attempt > 0:
@@ -728,11 +748,17 @@ def process_photo(cfg, src, out_root, output_stem=None):
         scene = analyze_scene(crop)
         max_qa_retries = int(cfg.get("max_qa_retries", 2))
 
+        # Match 3D LUT for Variant B
+        from . import lut_engine
+        matched_lut = lut_engine.match_lut_for_scene(scene_plan or plan)
+        if matched_lut:
+            plan["lut_b"] = matched_lut.name
+
         a, qa_a, retries_a = _grade_variant_with_qa(
             "A", crop, scene=scene, intent=intent, ratio=ratio, max_retries=max_qa_retries
         )
         b, qa_b, retries_b = _grade_variant_with_qa(
-            "B", crop, scene=scene, intent=intent, ratio=ratio, max_retries=max_qa_retries
+            "B", crop, scene=scene, intent=intent, ratio=ratio, max_retries=max_qa_retries, lut_path=matched_lut
         )
 
         if retries_a > 0 or retries_b > 0:
@@ -803,6 +829,7 @@ def _build_reel_command(
     include_audio=True,
     use_gpu=False,
     template=None,
+    lut_path=None,
 ):
     """Build an Instagram/mobile-compatible ffmpeg export command."""
     # Keep paths relative to the project working directory.  The project lives
@@ -812,19 +839,22 @@ def _build_reel_command(
     out = str(Path(out))
     base = "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"
     
-    # Grading from template or default A/B
-    if template and "grading" in template:
+    # Use 3D LUT filter if Variant B has a LUT file, otherwise fallback to template/eq
+    if variant == "B" and lut_path and Path(lut_path).is_file():
+        # FFmpeg lut3d filter expects forward slashes and escaped colons on Windows
+        clean_lut_path = str(Path(lut_path).resolve()).replace("\\", "/").replace(":", "\\:")
+        color_filter = f"lut3d='{clean_lut_path}'"
+    elif template and "grading" in template:
         t_grading = template["grading"]
-        warmth = float(t_grading.get("warmth", 0.0))
         contrast = float(t_grading.get("contrast", 1.2 if variant == "B" else 1.1))
         saturation = float(t_grading.get("saturation", 1.25))
         if variant == "B":
             contrast *= 1.15
             saturation *= 1.1
-        eq = f"eq=contrast={contrast:.2f}:saturation={saturation:.2f}"
+        color_filter = f"eq=contrast={contrast:.2f}:saturation={saturation:.2f}"
     else:
         contrast = 2.5 if variant == "B" else 1.5
-        eq = f"eq=contrast={1 + contrast / 10.0}:saturation=1.3"
+        color_filter = f"eq=contrast={1 + contrast / 10.0}:saturation=1.3"
 
     ken_burns = bool(
         template.get("ken_burns", False)
@@ -841,7 +871,7 @@ def _build_reel_command(
 
         filter_graph = build_segment_filter(
             selected_segments,
-            base + "," + eq,
+            base + "," + color_filter,
             include_audio=include_audio,
             transition=transition,
             transition_duration=transition_duration,
@@ -855,7 +885,7 @@ def _build_reel_command(
         command += ["-map", "0:v:0"]
         if include_audio:
             command += ["-map", "0:a:0?"]
-        vf_chain = [base, eq]
+        vf_chain = [base, color_filter]
         if ken_burns:
             vf_chain.insert(
                 0, f"zoompan=z='min(zoom+{zoom_speed},1.15)':d=900:s=1080x1920:fps=30"
@@ -891,6 +921,7 @@ def _save_reel_manifest(
     provider,
     outputs,
     template=None,
+    lut_name=None,
 ):
     """Save the editing decision next to the other machine-readable manifests."""
     manifest_dir = Path(manifest_dir)
@@ -904,6 +935,7 @@ def _save_reel_manifest(
         "selected_segments": selected_segments or [],
         "editing_provider": provider,
         "template": template.get("name") if template else "Default A/B",
+        "lut_b": lut_name,
         "grading_variants": ["A", "B"],
         "outputs": {key: str(value) for key, value in outputs.items()},
     }
@@ -1025,10 +1057,12 @@ def process_reel(cfg, src, out_root, output_stem=None):
 
     logger.info(f"[Reel] {plan.get('scene_type')} | processing...")
 
-    # Template selection based on scene analysis or default
-    from . import templates
+    # Template & LUT selection based on scene analysis or default
+    from . import templates, lut_engine
     template = templates.select_template_for_scene(scene_plan or plan)
-    logger.info(f"[Reel] Applied Template: {template.get('name')} (transitions={template.get('transition_type')}, ken_burns={template.get('ken_burns')})")
+    matched_lut = lut_engine.match_lut_for_scene(scene_plan or plan)
+    lut_name = matched_lut.name if matched_lut else "None"
+    logger.info(f"[Reel] Applied Template: {template.get('name')} | LUT (B): {lut_name}")
 
     # Constant per source — probe once, reuse for both variants.
     has_audio = has_audio_stream(str(src))
@@ -1048,6 +1082,7 @@ def process_reel(cfg, src, out_root, output_stem=None):
             include_audio=has_audio,
             use_gpu=use_gpu,
             template=template,
+            lut_path=matched_lut if variant == "B" else None,
         )
 
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
@@ -1073,6 +1108,7 @@ def process_reel(cfg, src, out_root, output_stem=None):
             for variant in ("A", "B")
         },
         template=template,
+        lut_name=lut_name if matched_lut else None,
     )
 
     # Save ready-to-copy caption alongside Reels
