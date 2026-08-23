@@ -45,3 +45,12 @@ Die App lädt eine Datei zuerst als temporäre Datei hoch und verschiebt sie ers
 nach vollständigem Upload atomar nach `1_EINGANG`. Der vorhandene Watchdog
 verarbeitet sie danach unverändert. Fertige Varianten werden aus `2_FERTIG`
 angeboten.
+
+## Native iPhone-App (Capacitor)
+
+Zusätzlich zur Safari-/PWA-Version liegt unter `capacitor/` ein nativer iOS-Wrapper.
+Die Oberfläche bleibt dieselbe, aber fertige Dateien können über native iOS-Funktionen
+direkt in **Fotos** gespeichert oder über das normale **Teilen**-Sheet weitergegeben
+werden. Der Browser-Download wird für diese beiden Aktionen nicht verwendet.
+
+Für Einrichtung und iOS-Build siehe [`capacitor/README.md`](capacitor/README.md).

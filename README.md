@@ -102,6 +102,7 @@ Die Mobile-App ist eine schlanke lokale Web-App für den privaten Gebrauch. Sie 
 Der Server lauscht standardmäßig auf Port `8787`. Bitte den Port nur im privaten WLAN oder im eigenen Tailscale-Netz verwenden und niemals öffentlich weiterleiten.
 
 Mehr Details: [`_SYSTEM/mobile/README.md`](_SYSTEM/mobile/README.md)
+Der native Capacitor-Wrapper für „In Fotos speichern“ und das iOS-Share-Sheet liegt unter [`_SYSTEM/mobile/capacitor/`](_SYSTEM/mobile/capacitor/).
 
 ## Konfiguration
 
@@ -132,6 +133,7 @@ Set-Location 'S:\all my projects\IG-AUTOMATIK\_SYSTEM\app'
 - [`_SYSTEM/app/README.md`](_SYSTEM/app/README.md) — Pipeline und Bildbearbeitung
 - [`_SYSTEM/app/QUICK_START.md`](_SYSTEM/app/QUICK_START.md) — kurzer Einstieg
 - [`_SYSTEM/mobile/README.md`](_SYSTEM/mobile/README.md) — iPhone-App und Netzwerkzugriff
+- [`_SYSTEM/mobile/capacitor/README.md`](_SYSTEM/mobile/capacitor/README.md) — nativer iOS-Wrapper
 
 ## Status
 

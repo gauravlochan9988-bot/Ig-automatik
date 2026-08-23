@@ -230,10 +230,10 @@ function variantCard(file) {
     <div class="variant-heading"><strong>Variante ${file.variant}</strong><span>${file.variant === 'A' ? 'Natural' : 'Cinematic'}</span></div>
     ${preview}
     <div class="card-actions">
-      <button class="share" data-url="${file.url}" data-name="${escapeHtml(file.name)}" data-video="${video}">In Fotos sichern</button>
-      <a class="download ${file.variant === 'B' ? 'accent' : ''}" data-download="true" data-preview="${file.preview_url}" data-url="${file.url}" data-name="${escapeHtml(file.name)}" data-video="${video}" href="${file.url}">Sichern / teilen</a>
+      <button class="share" data-action="save" data-url="${file.url}" data-name="${escapeHtml(file.name)}" data-video="${video}">In Fotos speichern</button>
+      <button class="share ${file.variant === 'B' ? 'accent' : ''}" data-action="share" data-url="${file.url}" data-name="${escapeHtml(file.name)}" data-video="${video}">↗ Teilen</button>
     </div>
-    ${file.master_url ? `<div class="master-actions"><button class="share master-share" data-url="${file.master_url}" data-name="${escapeHtml(file.master_name)}" data-video="${video}">Vollqualität sichern</button></div>` : `<div class="master-missing">Vollqualität derzeit nicht im Archiv gefunden</div>`}
+    ${file.master_url ? `<div class="master-actions"><button class="share master-share" data-action="save" data-url="${file.master_url}" data-name="${escapeHtml(file.master_name)}" data-video="${video}">Vollqualität in Fotos speichern</button></div>` : `<div class="master-missing">Vollqualität derzeit nicht im Archiv gefunden</div>`}
   </div>`;
 }
 
@@ -241,7 +241,49 @@ function formatLabel(format) {
   return { POSTS: 'Instagram-Post · 4:5', STORIES: 'Story · 9:16', REELS: 'Reel · 9:16' }[format] || format;
 }
 
-async function shareOutput(url, filename, video = false, trigger = null) {
+let nativeMediaPlugin;
+
+function getNativeMediaPlugin() {
+  const capacitor = window.Capacitor;
+  if (!capacitor) return null;
+  if (typeof capacitor.isNativePlatform === 'function' && !capacitor.isNativePlatform()) return null;
+  if (capacitor.Plugins?.IGMedia) return capacitor.Plugins.IGMedia;
+  if (typeof capacitor.registerPlugin === 'function') {
+    nativeMediaPlugin ||= capacitor.registerPlugin('IGMedia');
+    return nativeMediaPlugin;
+  }
+  return null;
+}
+
+function showActionToast(message, error = false) {
+  let toast = document.getElementById('action-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'action-toast';
+    toast.setAttribute('role', 'status');
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.classList.toggle('error', error);
+  toast.classList.add('visible');
+  clearTimeout(showActionToast.timer);
+  showActionToast.timer = setTimeout(() => toast.classList.remove('visible'), 2600);
+}
+
+async function runNativeMediaAction(action, url, filename, video) {
+  const plugin = getNativeMediaPlugin();
+  if (!plugin || typeof plugin[action] !== 'function') return false;
+  const absoluteURL = new URL(url, window.location.href).toString();
+  await plugin[action]({
+    url: absoluteURL,
+    filename: filename || (video ? 'IG-AUTOMATIK.mp4' : 'IG-AUTOMATIK.jpg'),
+    kind: video ? 'video' : 'image',
+  });
+  if (action === 'saveToPhotos') showActionToast('✓ In Fotos gespeichert');
+  return true;
+}
+
+async function shareOutput(url, filename, video = false, trigger = null, action = 'share') {
   if (trigger?.dataset.busy === 'true') return;
   const originalText = trigger?.textContent;
   if (trigger) {
@@ -252,15 +294,48 @@ async function shareOutput(url, filename, video = false, trigger = null) {
     trigger.textContent = 'Wird vorbereitet …';
   }
   try {
+    const nativeAction = action === 'save' ? 'saveToPhotos' : 'shareFile';
+    if (await runNativeMediaAction(nativeAction, url, filename, video)) return;
+
     const response = await fetch(url);
     if (!response.ok) throw new Error('Datei konnte nicht geladen werden.');
     const blob = await response.blob();
     const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
-    if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
-      await navigator.share({ title: 'IG-AUTOMATIK', files: [file] });
-      return;
+    let canShareFile = Boolean(navigator.share);
+    if (canShareFile && navigator.canShare) {
+      try {
+        canShareFile = navigator.canShare({ files: [file] });
+      } catch {
+        canShareFile = false;
+      }
     }
-    openMediaViewer({ downloadUrl: url, previewUrl: url, filename, video });
+    if (canShareFile) {
+      try {
+        await navigator.share({ title: 'IG-AUTOMATIK', files: [file] });
+        return;
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+        openMediaViewer({
+          downloadUrl: url,
+          previewUrl: url,
+          filename,
+          video,
+          fallbackMessage: video
+            ? 'Das iPhone-Teilen konnte nicht gestartet werden. Bitte öffne den Viewer erneut und versuche „In Fotos sichern / teilen“ noch einmal.'
+            : 'Das iPhone-Teilen konnte nicht gestartet werden. Halte das Bild direkt gedrückt und wähle „In Fotos sichern“.',
+        });
+        return;
+      }
+    }
+    openMediaViewer({
+      downloadUrl: url,
+      previewUrl: url,
+      filename,
+      video,
+      fallbackMessage: video
+        ? 'Das iPhone-Teilen ist hier nicht verfügbar. Bitte versuche „In Fotos sichern / teilen“ noch einmal.'
+        : 'Das iPhone-Teilen ist hier nicht verfügbar. Halte das Bild direkt gedrückt und wähle „In Fotos sichern“.',
+    });
   } catch (error) {
     if (error.name !== 'AbortError') alert(error.message || 'Sichern fehlgeschlagen.');
   } finally {
@@ -311,7 +386,7 @@ function createMediaViewer() {
   return { root, close };
 }
 
-function openMediaViewer({ downloadUrl, previewUrl, filename, video = false }) {
+function openMediaViewer({ downloadUrl, previewUrl, filename, video = false, fallbackMessage = '' }) {
   if (!mediaViewer) mediaViewer = createMediaViewer();
   const { root } = mediaViewer;
   const media = root.querySelector('.viewer-media');
@@ -335,7 +410,10 @@ function openMediaViewer({ downloadUrl, previewUrl, filename, video = false }) {
   download.hidden = isAppleMobile();
   const share = root.querySelector('.viewer-share');
   share.textContent = isAppleMobile() ? 'In Fotos sichern / teilen' : 'In Fotos sichern';
-  share.onclick = () => shareOutput(downloadUrl, safeName, video, share);
+  root.querySelector('.viewer-hint').textContent = fallbackMessage || (isAppleMobile()
+    ? 'Auf dem iPhone bleibt die App geöffnet. Nutze „In Fotos sichern / teilen“.'
+    : 'Über „Download am Computer“ wird die Datei direkt heruntergeladen.');
+  share.onclick = () => shareOutput(downloadUrl, safeName, video, share, 'save');
   root.hidden = false;
   document.body.classList.add('viewer-open');
 }
@@ -344,7 +422,13 @@ function bindShareButtons() {
   document.querySelectorAll('.share').forEach(button => {
     button.addEventListener('click', () => {
       playSound('click');
-      shareOutput(button.dataset.url, button.dataset.name, button.dataset.video === 'true', button);
+      shareOutput(
+        button.dataset.url,
+        button.dataset.name,
+        button.dataset.video === 'true',
+        button,
+        button.dataset.action || 'save',
+      );
     });
   });
   document.querySelectorAll('[data-download="true"]').forEach(link => {
@@ -358,6 +442,7 @@ function bindShareButtons() {
         link.dataset.name || 'Datei',
         link.dataset.video === 'true',
         link,
+        'share',
       );
     });
   });
