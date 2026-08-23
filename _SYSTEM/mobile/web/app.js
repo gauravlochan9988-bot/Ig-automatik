@@ -6,13 +6,10 @@ const refreshButton = document.querySelector('#refresh-button');
 const filter = document.querySelector('#filter');
 const search = document.querySelector('#search');
 const historyActions = document.querySelector('#history-actions');
-const themeToggle = document.querySelector('#theme-toggle');
-const soundToggle = document.querySelector('#sound-toggle');
 const appLoading = document.querySelector('#app-loading');
 let selectedFiles = [];
 let allJobs = [];
 let lastJobsSignature = '';
-let audioContext;
 let jobsRequest = null;
 let pollingTimer = null;
 
@@ -20,55 +17,6 @@ function finishAppLoading() {
   if (!appLoading) return;
   appLoading.classList.add('ready');
   setTimeout(() => appLoading.remove(), 360);
-}
-
-function applyTheme(retro) {
-  document.body.classList.toggle('retro', retro);
-  themeToggle.textContent = retro ? 'Normales Design' : 'Retro testen';
-  themeToggle.setAttribute('aria-pressed', String(retro));
-}
-
-applyTheme(localStorage.getItem('ig-automatik-theme') === 'retro');
-themeToggle.addEventListener('click', () => {
-  const retro = !document.body.classList.contains('retro');
-  localStorage.setItem('ig-automatik-theme', retro ? 'retro' : 'normal');
-  applyTheme(retro);
-  playSound('click');
-});
-
-function applySound(enabled) {
-  soundToggle.textContent = enabled ? 'Sound: an' : 'Sound: aus';
-  soundToggle.setAttribute('aria-pressed', String(enabled));
-}
-
-applySound(localStorage.getItem('ig-automatik-sound') === 'on');
-soundToggle.addEventListener('click', () => {
-  const enabled = localStorage.getItem('ig-automatik-sound') !== 'on';
-  localStorage.setItem('ig-automatik-sound', enabled ? 'on' : 'off');
-  applySound(enabled);
-  if (enabled) playSound('success');
-});
-
-function playSound(kind = 'click') {
-  if (localStorage.getItem('ig-automatik-sound') !== 'on') return;
-  try {
-    audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
-    if (audioContext.state === 'suspended') audioContext.resume();
-    const oscillator = audioContext.createOscillator();
-    const gain = audioContext.createGain();
-    const now = audioContext.currentTime;
-    oscillator.type = 'square';
-    oscillator.frequency.setValueAtTime(kind === 'success' ? 660 : 440, now);
-    oscillator.frequency.exponentialRampToValueAtTime(kind === 'success' ? 880 : 330, now + 0.07);
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.035, now + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
-    oscillator.connect(gain).connect(audioContext.destination);
-    oscillator.start(now);
-    oscillator.stop(now + 0.1);
-  } catch {
-    // Sound is optional; the app must continue normally if audio is blocked.
-  }
 }
 
 input.addEventListener('change', () => {
@@ -80,7 +28,6 @@ input.addEventListener('change', () => {
 });
 
 uploadButton.addEventListener('click', async () => {
-  playSound('click');
   uploadButton.disabled = true;
   try {
     for (let index = 0; index < selectedFiles.length; index++) {
@@ -94,7 +41,6 @@ uploadButton.addEventListener('click', async () => {
     input.value = '';
     selection.textContent = 'Upload abgeschlossen. Verarbeitung läuft.';
     await loadJobs();
-    playSound('success');
   } catch (error) {
     alert(error.message || 'Upload fehlgeschlagen.');
   } finally {
@@ -103,7 +49,7 @@ uploadButton.addEventListener('click', async () => {
   }
 });
 
-refreshButton.addEventListener('click', () => { playSound('click'); loadJobs(true); });
+refreshButton.addEventListener('click', () => loadJobs(true));
 filter.addEventListener('change', () => renderJobs(allJobs));
 search.addEventListener('input', () => renderJobs(allJobs));
 
@@ -441,7 +387,6 @@ function openMediaViewer({ downloadUrl, previewUrl, filename, video = false, fal
 function bindShareButtons() {
   document.querySelectorAll('.share').forEach(button => {
     button.addEventListener('click', () => {
-      playSound('click');
       shareOutput(
         button.dataset.url,
         button.dataset.name,
@@ -454,7 +399,6 @@ function bindShareButtons() {
   document.querySelectorAll('[data-download="true"]').forEach(link => {
     link.addEventListener('click', event => {
       event.preventDefault();
-      playSound('click');
       // On iPhone this opens the native share sheet, where the user can
       // choose “Video sichern” instead of being sent to the file viewer.
       shareOutput(
