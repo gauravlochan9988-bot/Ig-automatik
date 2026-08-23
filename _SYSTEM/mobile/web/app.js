@@ -158,10 +158,22 @@ function renderJobs(items) {
         <div class="format-title">${formatLabel(format)}</div>
         <div class="variants">${files.map(file => variantCard(file)).join('')}</div>
       </div>`).join('');
-    const statusText = { done: 'Fertig', processing: 'Wird verarbeitet', waiting: 'Wartet auf Verarbeitung' }[job.status] || job.status;
+    const statusText = {
+      done: 'Fertig',
+      processing: 'Wird verarbeitet',
+      missing_outputs: 'Abgeschlossen – Dateien fehlen',
+      not_received: 'Upload nicht angekommen',
+    }[job.status] || job.status;
+    const statusNote = {
+      missing_outputs: 'Manifest vorhanden, aber die fertigen Dateien fehlen.',
+      not_received: 'Kein Original und kein Abschluss-Manifest gefunden.',
+    }[job.status];
+    const pendingView = job.status === 'processing'
+      ? '<div class="progress"><span></span></div>'
+      : statusNote ? `<div class="status-note">${statusNote}</div>` : '';
     return `<article class="job">
     <div class="job-top"><div><strong>${escapeHtml(job.original_name)}</strong><small>${formatDate(job.created)}</small></div><span class="status ${job.status}">${statusText}</span></div>
-      ${outputGroups || '<div class="progress"><span></span></div>'}
+      ${outputGroups || pendingView}
     </article>`;
   }).join('');
   bindShareButtons();

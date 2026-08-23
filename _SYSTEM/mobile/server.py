@@ -47,6 +47,7 @@ class MobileBridge:
         self.input_dir = self.project_root / "1_EINGANG"
         self.output_dir = self.project_root / "2_FERTIG"
         self.masters_dir = self.project_root / "3_ARCHIV" / "MASTERS"
+        self.manifests_dir = self.project_root / "_SYSTEM" / "manifests"
         self.jobs_dir = data_dir.resolve() / "jobs"
         self.posters_dir = data_dir.resolve() / "posters"
         self.jobs_dir.mkdir(parents=True, exist_ok=True)
@@ -199,13 +200,25 @@ class MobileBridge:
     def snapshot(self, job: dict) -> dict:
         outputs = self._output_files(job)
         source = self.input_dir / job["source_name"]
+        manifests = [
+            path for format_name in FORMATS
+            for path in [self.manifests_dir / f"{job['stem']}_{format_name}_manifest.json"]
+            if path.is_file() and path.stat().st_size > 0
+        ]
         if outputs:
             status = "done"
         elif source.exists():
             status = "processing"
+        elif manifests:
+            status = "missing_outputs"
         else:
-            status = "waiting"
-        return {**job, "status": status, "outputs": outputs}
+            status = "not_received"
+        return {
+            **job,
+            "status": status,
+            "outputs": outputs,
+            "manifest_available": bool(manifests),
+        }
 
     def list_jobs(self) -> list[dict]:
         jobs = []

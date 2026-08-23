@@ -31,7 +31,7 @@ select { appearance:none; border:1px solid #35415a; border-radius:10px; backgrou
 .job strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:240px; }
 .job small { display:block; color:#8290a8; margin-top:6px; }
 .status { white-space:nowrap; font-size:12px; color:#aeb7c9; }
-.status.done { color:#6ee7b7; }.status.processing { color:#fcd34d; }.status.waiting { color:#a5b4fc; }
+.status.done { color:#6ee7b7; }.status.processing { color:#fcd34d; }.status.missing_outputs { color:#fbbf24; }.status.not_received { color:#fca5a5; }
 .format-block { margin-top:18px; padding-top:14px; border-top:1px solid #273147; }
 .format-title { color:#aeb7c9; font-size:12px; font-weight:700; margin-bottom:10px; }
 .variants { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
@@ -48,6 +48,7 @@ select { appearance:none; border:1px solid #35415a; border-radius:10px; backgrou
 .master-share { background:#115e59; color:#ecfeff; border-color:#2dd4bf; }
 .master-missing { margin-top:8px; padding:8px 5px; border-radius:10px; color:#fcd34d; background:#3b2f12; text-align:center; font-size:10px; }
 .progress { height:4px; background:#273147; border-radius:4px; margin-top:16px; overflow:hidden; }.progress span { display:block; width:45%; height:100%; background:#6366f1; animation:slide 1.5s infinite ease-in-out; }
+.status-note { margin-top:14px; padding:10px; border-radius:10px; color:#fcd34d; background:#3b2f12; font-size:11px; line-height:1.35; }
 @keyframes slide { from { transform:translateX(-100%); } to { transform:translateX(240%); } }
 .empty { padding:28px 10px; color:#818da3; text-align:center; border:1px dashed #273147; border-radius:16px; }.error { color:#fca5a5; }
 .history-actions { text-align:center; min-height:32px; padding-top:12px; }.history-note { color:#818da3; font-size:12px; }
