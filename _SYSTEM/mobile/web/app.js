@@ -8,12 +8,19 @@ const search = document.querySelector('#search');
 const historyActions = document.querySelector('#history-actions');
 const themeToggle = document.querySelector('#theme-toggle');
 const soundToggle = document.querySelector('#sound-toggle');
+const appLoading = document.querySelector('#app-loading');
 let selectedFiles = [];
 let allJobs = [];
 let lastJobsSignature = '';
 let audioContext;
 let jobsRequest = null;
 let pollingTimer = null;
+
+function finishAppLoading() {
+  if (!appLoading) return;
+  appLoading.classList.add('ready');
+  setTimeout(() => appLoading.remove(), 360);
+}
 
 function applyTheme(retro) {
   document.body.classList.toggle('retro', retro);
@@ -487,7 +494,10 @@ function schedulePolling() {
   }, 3000);
 }
 
-loadJobs(true).finally(schedulePolling);
+loadJobs(true).finally(() => {
+  finishAppLoading();
+  schedulePolling();
+});
 
 // iOS may suspend timers while the Home-Screen app is in the background. A
 // fresh request when the app becomes visible prevents a stale "Wartet auf
