@@ -1297,6 +1297,13 @@ def run_on_folder(cfg=None, batch_limit=None):
         kind = "VIDEO" if src.suffix.lower() in video_ext else "PHOTO"
 
         try:
+            # The input folder can change while this snapshot is processed.
+            # A source moved by another watcher/user is not a batch failure.
+            if not src.is_file():
+                skipped.append(f"{src.name} (nicht mehr vorhanden)")
+                logger.warn(f"Skipping missing source: {src.name}")
+                continue
+
             # Identical bytes already archived: skip the expensive grading +
             # vision call and drop the extra copy instead of accumulating
             # _2/_3 files. If the check itself raises (permissions, concurrent
@@ -1327,6 +1334,11 @@ def run_on_folder(cfg=None, batch_limit=None):
 
             ok.append(src.name)
             logger.success(f"Completed: {src.name}")
+        except FileNotFoundError:
+            # The source can disappear after the check above if another
+            # process archives it first. Treat it as already handled.
+            skipped.append(f"{src.name} (nicht mehr vorhanden)")
+            logger.warn(f"Source disappeared during processing, skipping: {src.name}")
         except Exception as e:
             failed.append((src.name, str(e)))
             logger.error(f"Failed to process: {src.name}", error=e)
@@ -1358,7 +1370,7 @@ def _build_batch_report_text(ok, failed, skipped=None):
             lines.append(f"  - {name}")
     if skipped:
         lines.append("")
-        lines.append("Duplikate übersprungen:")
+        lines.append("Duplikate oder nicht mehr vorhandene Dateien übersprungen:")
         for name in skipped:
             lines.append(f"  - {name}")
     if failed:

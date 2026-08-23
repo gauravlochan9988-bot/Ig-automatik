@@ -214,7 +214,14 @@ def run_processing():
         return
 
     logger.info("Starting processing...")
-    proc = subprocess.run([sys.executable, str(MAIN)], cwd=str(ROOT))
+    run_kwargs = {"cwd": str(ROOT)}
+    # On Windows, launching python.exe from the watchdog creates a new console
+    # window for every batch. Keep batch processing attached to the watchdog
+    # without opening a popup for each arriving file/burst.
+    if os.name == "nt":
+        run_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
+    proc = subprocess.run([sys.executable, str(MAIN)], **run_kwargs)
 
     if proc.returncode != 0:
         logger.warn(f"Processing ended with code {proc.returncode}")
@@ -304,6 +311,12 @@ def _make_observer():
 
 def main():
     """Main watchdog loop."""
+    # pythonw.exe has no console on Windows. Use UTF-8 with replacement so
+    # the informational banner cannot abort startup on a legacy code page.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
     print("""
     ╔════════════════════════════════════╗
     ║  IG-AUTOMATIK Watchdog (Auto)      ║
