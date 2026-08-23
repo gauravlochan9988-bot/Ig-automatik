@@ -134,6 +134,8 @@ class ExportManager:
                 "preserve_colors": plan.get("preserve_colors"),
                 "grading_intent": plan.get("grading_intent"),
                 "crop_target": plan.get("crop_target"),
+                "crop_decision": plan.get("crop_decision"),
+                "composition_plan": plan.get("composition_plan"),
                 "style_a": plan.get("style_a"),
                 "style_b": plan.get("style_b"),
                 "instagram": plan.get("instagram"),

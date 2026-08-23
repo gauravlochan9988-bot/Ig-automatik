@@ -283,6 +283,54 @@ class GradingEngineTests(unittest.TestCase):
         self.assertIsNotNone(anchor)
         self.assertIsNone(engine._subject_anchor(rgb, {"scene_type": "landscape"}))
 
+    def test_subject_preserving_crop_keeps_full_body_regions(self):
+        rgb = np.zeros((150, 100, 3), dtype=np.float32)
+        plan = {
+            "scene_type": "portrait",
+            "main_subject": "full body person",
+            "composition_plan": {
+                "subject_type": "full_body_person",
+                "protected_regions": [
+                    {"name": "head", "box": [0.25, 0.10, 0.50, 0.12], "required": True},
+                    {"name": "body", "box": [0.20, 0.22, 0.60, 0.50], "required": True},
+                    {"name": "feet", "box": [0.22, 0.72, 0.56, 0.12], "required": True},
+                ],
+                "preferred_position": "slightly_upper_center",
+                "allow_zoom": False,
+                "preserve_environment": True,
+            },
+        }
+
+        result = engine.select_safe_crop(rgb, "4:5", plan=plan)
+
+        self.assertTrue(result["safe"])
+        self.assertEqual(result["missing"], [])
+        self.assertEqual(result["crop"].shape[:2], (125, 100))
+
+    def test_subject_preserving_crop_uses_safe_padding_when_ratio_is_impossible(self):
+        rgb = np.zeros((150, 100, 3), dtype=np.float32)
+        plan = {
+            "scene_type": "portrait",
+            "main_subject": "full body person",
+            "composition_plan": {
+                "subject_type": "full_body_person",
+                "protected_regions": [
+                    {"name": "head", "box": [0.20, 0.0, 0.60, 0.10], "required": True},
+                    {"name": "feet", "box": [0.20, 0.90, 0.60, 0.10], "required": True},
+                ],
+                "allow_zoom": False,
+                "preserve_environment": True,
+            },
+        }
+
+        result = engine.select_safe_crop(rgb, "4:5", plan=plan)
+
+        self.assertTrue(result["safe"])
+        self.assertEqual(result["mode"], "padded_safe")
+        self.assertEqual(result["missing"], [])
+        self.assertFalse(result["feasible"])
+        self.assertEqual(result["crop"].shape[:2], (150, 120))
+
     def test_person_words_detection(self):
         self.assertTrue(engine._is_person_subject({"scene_type": "portrait"}))
         self.assertTrue(engine._is_person_subject({"main_subject": "woman with hat"}))

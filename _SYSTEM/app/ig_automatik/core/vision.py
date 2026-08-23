@@ -41,6 +41,15 @@ Reply with JSON only, no prose:
   "main_subject": "short description of the main subject",
   "subject_importance": 0.0-1.0,
   "subject_box": [x, y, width, height] as normalized 0..1 box around the main subject,
+  "composition_plan": {
+    "subject_type": "full_body_person|upper_body_person|portrait|group|object|scene",
+    "protected_regions": [
+      {"name": "head|body|feet|main_subject|important_object", "box": [x, y, width, height], "required": true}
+    ],
+    "preferred_position": "center|slightly_upper_center|environment_preserving",
+    "allow_zoom": true,
+    "preserve_environment": true
+  },
   "environment_importance": 0.0-1.0,
   "sky_importance": 0.0-1.0,
   "preserve_colors": ["colours that must not shift, e.g. skin tones"],
@@ -61,12 +70,13 @@ Reply with JSON only, no prose:
   }
 }
 
-subject_box is REQUIRED. Always return a bounding box around the main subject:
-for a person, put it around the FACE and upper body (head must be inside the box).
+subject_box is REQUIRED. Always return a bounding box around the complete
+visible main subject, not just the face. For a visible full-body person, also
+return separate protected head, body, and feet regions in composition_plan.
 Approximate coordinates are fine: [x, y, width, height] all in 0..1 where
-0,0 is the top-left of the image. If the main subject is a person, the box
-must cover the head (top area of the person). subject_box is more important
-than subject_importance for cropping.
+0,0 is the top-left of the image. If feet are not visible, do not invent a
+feet box. subject_box is a fallback; composition_plan is more important for
+safe cropping. Never claim that a region is visible when it is not.
 subject_importance says how tightly a crop should hold the subject; \
 sky_importance how much sky is worth keeping. grading_intent is a nudge \
 relative to a neutral grade, where 0 means "leave as is".
@@ -254,6 +264,46 @@ def analyze(src: Path) -> Optional[Dict]:
         },
     }
 
+    composition_plan_raw = data.get("composition_plan") or {}
+    if not isinstance(composition_plan_raw, dict):
+        composition_plan_raw = {}
+    protected_raw = composition_plan_raw.get("protected_regions") or []
+    if not isinstance(protected_raw, list):
+        protected_raw = []
+    protected_regions = []
+    for item in protected_raw[:12]:
+        if not isinstance(item, dict):
+            continue
+        raw_box = item.get("box")
+        if not isinstance(raw_box, (list, tuple)) or len(raw_box) != 4:
+            continue
+        protected_regions.append({
+            "name": str(item.get("name", "main_subject"))[:40].lower(),
+            "box": [
+                _clamp(raw_box[0], 0.0, 1.0, 0.0),
+                _clamp(raw_box[1], 0.0, 1.0, 0.0),
+                _clamp(raw_box[2], 0.0, 1.0, 1.0),
+                _clamp(raw_box[3], 0.0, 1.0, 1.0),
+            ],
+            "required": bool(item.get("required", True)),
+        })
+    subject_type = str(
+        composition_plan_raw.get("subject_type", "")
+    )[:40].lower()
+    if subject_type not in {
+        "full_body_person", "upper_body_person", "portrait", "group", "object", "scene"
+    }:
+        subject_type = ""
+    composition_plan = {
+        "subject_type": subject_type,
+        "protected_regions": protected_regions,
+        "preferred_position": str(
+            composition_plan_raw.get("preferred_position", "center")
+        )[:40].lower(),
+        "allow_zoom": bool(composition_plan_raw.get("allow_zoom", True)),
+        "preserve_environment": bool(composition_plan_raw.get("preserve_environment", True)),
+    }
+
     ig_data = data.get("instagram") or {}
     instagram = None
     if isinstance(ig_data, dict) and ig_data:
@@ -278,6 +328,7 @@ def analyze(src: Path) -> Optional[Dict]:
         "environment_importance": _clamp(data.get("environment_importance"), 0.0, 1.0, 0.7),
         "sky_importance": _clamp(data.get("sky_importance"), 0.0, 1.0, 0.3),
         "subject_box": subject_box,
+        "composition_plan": composition_plan,
         "preserve_colors": [str(c)[:40] for c in preserve[:8]],
         "grading_intent": {
             "warmth": _clamp(intent_raw.get("warmth"), -1.0, 1.0, 0.0),

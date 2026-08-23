@@ -710,6 +710,387 @@ def _face_anchor(rgb):
     return None
 
 
+def _face_boxes(rgb):
+    """Return normalized local face boxes for composition protection."""
+    try:
+        gray = cv2.cvtColor(
+            np.clip(rgb, 0, 1).astype(np.float32) * 255.0, cv2.COLOR_RGB2GRAY
+        ).astype(np.uint8)
+    except Exception:
+        return []
+
+    h, w = rgb.shape[:2]
+    for cascade_name in (
+        "haarcascade_frontalface_default.xml",
+        "haarcascade_profileface.xml",
+    ):
+        try:
+            cascade = cv2.CascadeClassifier(cv2.data.haarcascades + cascade_name)
+            faces = cascade.detectMultiScale(gray, 1.1, 5, minSize=(24, 24))
+            if len(faces):
+                return [
+                    [float(x) / w, float(y) / h, float(fw) / w, float(fh) / h]
+                    for x, y, fw, fh in faces
+                ]
+        except Exception:
+            continue
+    return []
+
+
+def _full_body_boxes(rgb):
+    """Detect full-body people locally when no structured vision boxes exist."""
+    try:
+        h, w = rgb.shape[:2]
+        scale = min(1.0, 640.0 / max(h, w))
+        small = cv2.resize(
+            np.clip(rgb * 255.0, 0, 255).astype(np.uint8),
+            (max(1, int(round(w * scale))), max(1, int(round(h * scale)))),
+            interpolation=cv2.INTER_AREA,
+        )
+        gray = cv2.cvtColor(small, cv2.COLOR_RGB2GRAY)
+        hog = cv2.HOGDescriptor()
+        hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+        boxes, weights = hog.detectMultiScale(
+            gray, winStride=(8, 8), padding=(8, 8), scale=1.05
+        )
+        result = []
+        for (x, y, bw, bh), weight in zip(boxes, weights):
+            if float(weight) < 0.1:
+                continue
+            result.append([
+                float(x) / (w * scale),
+                float(y) / (h * scale),
+                float(bw) / (w * scale),
+                float(bh) / (h * scale),
+            ])
+        return result
+    except Exception:
+        return []
+
+
+def _normalized_box(box):
+    """Clamp an xywh box to normalized image coordinates."""
+    if not isinstance(box, (list, tuple)) or len(box) != 4:
+        return None
+    try:
+        x, y, bw, bh = [float(value) for value in box]
+    except (TypeError, ValueError):
+        return None
+    x, y = np.clip([x, y], 0.0, 1.0)
+    bw, bh = max(0.0, bw), max(0.0, bh)
+    x1, y1 = min(1.0, x + bw), min(1.0, y + bh)
+    if x1 <= x or y1 <= y:
+        return None
+    return [float(x), float(y), float(x1 - x), float(y1 - y)]
+
+
+def _box_union(boxes):
+    """Return the normalized union of valid xywh boxes."""
+    valid = [_normalized_box(box) for box in boxes]
+    valid = [box for box in valid if box is not None]
+    if not valid:
+        return None
+    x0 = min(box[0] for box in valid)
+    y0 = min(box[1] for box in valid)
+    x1 = max(box[0] + box[2] for box in valid)
+    y1 = max(box[1] + box[3] for box in valid)
+    return [x0, y0, x1 - x0, y1 - y0]
+
+
+def _body_regions_from_box(box):
+    """Approximate head/body/feet regions from a validated full-body box."""
+    box = _normalized_box(box)
+    if not box:
+        return []
+    x, y, w, h = box
+    return [
+        {"name": "head", "box": [x, y, w, h * 0.18], "required": True},
+        {"name": "body", "box": [x, y + h * 0.10, w, h * 0.76], "required": True},
+        {"name": "feet", "box": [x, y + h * 0.78, w, h * 0.22], "required": True},
+    ]
+
+
+def build_composition_plan(rgb, plan=None):
+    """Create a protected composition contract from vision plus local checks."""
+    plan = plan or {}
+    vision_composition = plan.get("composition_plan") or {}
+    if not isinstance(vision_composition, dict):
+        vision_composition = {}
+    regions = []
+    for item in vision_composition.get("protected_regions") or []:
+        if not isinstance(item, dict):
+            continue
+        box = _normalized_box(item.get("box"))
+        if box:
+            regions.append({
+                "name": str(item.get("name", "main_subject"))[:40].lower(),
+                "box": box,
+                "required": bool(item.get("required", True)),
+            })
+
+    subject_type = str(vision_composition.get("subject_type", "")).lower()
+    person = _is_person_subject(plan)
+    faces = _face_boxes(rgb)
+    if not regions:
+        # HOG is useful as a local fallback for a distant/full-body person,
+        # but it can mistake posters or palette cards for people. Require a
+        # semantic person signal, a declared full-body plan, or a small face
+        # that indicates the person is far enough away to need HOG detection.
+        # A face taking roughly a quarter of the frame is already a portrait;
+        # a much smaller face is the useful signal for a distant full body.
+        small_face = bool(faces) and max(face[3] for face in faces) < 0.18
+        should_detect_people = person and (
+            subject_type == "full_body_person" or not faces or small_face
+        )
+        should_detect_people = should_detect_people or (not person and small_face)
+        detected_people = _full_body_boxes(rgb) if should_detect_people else []
+        if detected_people:
+            group_box = _box_union(detected_people)
+            regions = _body_regions_from_box(group_box)
+            subject_type = "full_body_person" if len(detected_people) == 1 else "group"
+
+    subject_box = _normalized_box(plan.get("subject_box"))
+    if not regions and subject_box:
+        if person and subject_type == "full_body_person":
+            regions = _body_regions_from_box(subject_box)
+        else:
+            if faces:
+                for index, face in enumerate(faces[:6]):
+                    regions.append({
+                        "name": "head" if index == 0 else "person",
+                        "box": face,
+                        "required": True,
+                    })
+            regions.append({
+                "name": "main_subject",
+                "box": subject_box,
+                "required": True,
+            })
+
+    if not regions and person:
+        for index, face in enumerate(faces[:6]):
+            regions.append({
+                "name": "head" if index == 0 else "person",
+                "box": face,
+                "required": True,
+            })
+
+    if not subject_type:
+        if person:
+            subject_type = "portrait" if str(plan.get("scene_type", "")).lower() == "portrait" else "upper_body_person"
+        else:
+            subject_type = "object" if subject_box else "scene"
+
+    if subject_type == "full_body_person" and regions:
+        names = {region["name"] for region in regions}
+        if "feet" not in names:
+            union = _box_union([region["box"] for region in regions])
+            regions.extend(_body_regions_from_box(union))
+
+    subject_union = _box_union([region["box"] for region in regions]) or subject_box
+    environment_importance = float(np.clip(
+        plan.get("environment_importance", 0.7), 0.0, 1.0
+    ))
+    if subject_type == "full_body_person":
+        margin = 0.10 if environment_importance >= 0.6 else 0.08
+    elif subject_type == "portrait":
+        margin = 0.05
+    else:
+        margin = 0.07
+
+    return {
+        "subject_type": subject_type,
+        "subject_box": subject_union,
+        "protected_regions": regions,
+        "environment_importance": environment_importance,
+        "preferred_position": str(
+            vision_composition.get("preferred_position", "center")
+        ).lower(),
+        "allow_zoom": bool(vision_composition.get("allow_zoom", subject_type != "full_body_person")),
+        "preserve_environment": bool(
+            vision_composition.get("preserve_environment", environment_importance >= 0.6)
+        ),
+        "margin": margin,
+    }
+
+
+def _crop_dimensions(height, width, crop_target):
+    ratios = {"4:5": (4, 5), "4/5": (4, 5), "9:16": (9, 16), "9/16": (9, 16), "1:1": (1, 1)}
+    num, den = ratios.get(crop_target, (4, 5))
+    target = num / den
+    if width / height > target:
+        return max(1, min(width, int(round(height * target)))), height
+    return width, max(1, min(height, int(round(width / target))))
+
+
+def _window_contains(window, box, tolerance=1.0):
+    x0, y0, x1, y1 = window
+    bx, by, bw, bh = box
+    return (
+        x0 <= bx + tolerance
+        and y0 <= by + tolerance
+        and x1 >= bx + bw - tolerance
+        and y1 >= by + bh - tolerance
+    )
+
+
+def _pad_to_ratio(rgb_float, crop_target):
+    """Fit the full source into the target ratio with a soft replicated edge."""
+    height, width = rgb_float.shape[:2]
+    crop_width, crop_height = _crop_dimensions(height, width, crop_target)
+    target_ratio = crop_width / float(crop_height)
+    source_ratio = width / float(height)
+    if abs(source_ratio - target_ratio) < 1e-6:
+        return np.ascontiguousarray(rgb_float)
+
+    if source_ratio < target_ratio:
+        canvas_width, canvas_height = int(round(height * target_ratio)), height
+    else:
+        canvas_width, canvas_height = width, int(round(width / target_ratio))
+    pad_x = max(0, canvas_width - width)
+    pad_y = max(0, canvas_height - height)
+    left, right = pad_x // 2, pad_x - pad_x // 2
+    top, bottom = pad_y // 2, pad_y - pad_y // 2
+
+    # A blurred reflected edge keeps the subject intact without introducing
+    # harsh letterbox bars or inventing a new central subject.
+    background = cv2.copyMakeBorder(
+        np.clip(rgb_float, 0.0, 1.0).astype(np.float32),
+        top, bottom, left, right, cv2.BORDER_REFLECT_101,
+    )
+    sigma = max(2.0, min(canvas_width, canvas_height) * 0.035)
+    background = cv2.GaussianBlur(background, (0, 0), sigmaX=sigma)
+    background[top:top + height, left:left + width] = rgb_float
+    return np.ascontiguousarray(np.clip(background, 0.0, 1.0))
+
+
+def select_safe_crop(rgb_float, crop_target, plan=None, anchor=None):
+    """Select the best fixed-ratio crop that protects required regions."""
+    height, width = rgb_float.shape[:2]
+    crop_width, crop_height = _crop_dimensions(height, width, crop_target)
+    composition = build_composition_plan(rgb_float, plan)
+    regions = composition["protected_regions"]
+    required = [region for region in regions if region.get("required", True)]
+    union = composition.get("subject_box")
+    if not union and anchor is not None:
+        ax, ay = anchor
+        union = [float(ax) - 0.08, float(ay) - 0.08, 0.16, 0.16]
+    if not union:
+        union = [0.42, 0.32, 0.16, 0.16]
+
+    ux, uy, uw, uh = union
+    margin = composition["margin"]
+    safe = [
+        max(0.0, ux - margin * uw),
+        max(0.0, uy - margin * uh),
+        min(1.0, ux + uw + margin * uw),
+        min(1.0, uy + uh + margin * uh),
+    ]
+    safe_x0, safe_y0, safe_x1, safe_y1 = [
+        value * size for value, size in zip(safe, (width, height, width, height))
+    ]
+
+    min_x = max(0.0, safe_x1 - crop_width)
+    max_x = min(width - crop_width, safe_x0)
+    min_y = max(0.0, safe_y1 - crop_height)
+    max_y = min(height - crop_height, safe_y0)
+    feasible = min_x <= max_x + 1e-6 and min_y <= max_y + 1e-6
+
+    if anchor is not None:
+        preferred_x = float(anchor[0]) * width - crop_width / 2.0
+        preferred_y = float(anchor[1]) * height - crop_height / 2.0
+    else:
+        preferred_x = (ux + uw / 2.0) * width - crop_width / 2.0
+        preferred_y = (uy + uh / 2.0) * height - crop_height / 2.0
+    if composition["preferred_position"] == "slightly_upper_center":
+        preferred_y -= crop_height * 0.05
+    if composition["preserve_environment"]:
+        preferred_x = 0.65 * preferred_x + 0.35 * (width - crop_width) / 2.0
+        preferred_y = 0.65 * preferred_y + 0.35 * (height - crop_height) / 2.0
+
+    def _positions(preferred, low, high, extent, crop_extent):
+        values = [preferred, low, high, (extent - crop_extent) / 2.0]
+        return sorted({
+            int(np.clip(round(value), 0, max(0, int(extent - crop_extent))))
+            for value in values
+        })
+
+    x_positions = _positions(preferred_x, min_x, max_x, width, crop_width)
+    y_positions = _positions(preferred_y, min_y, max_y, height, crop_height)
+    candidates = []
+    for x0 in x_positions:
+        for y0 in y_positions:
+            window = (x0, y0, x0 + crop_width, y0 + crop_height)
+            contained = [
+                _window_contains(
+                    window,
+                    [
+                        region["box"][0] * width,
+                        region["box"][1] * height,
+                        region["box"][2] * width,
+                        region["box"][3] * height,
+                    ],
+                )
+                for region in required
+            ]
+            missing = [region for region, present in zip(required, contained) if not present]
+            score = 100.0 - len(missing) * 100.0
+            for region, present in zip(required, contained):
+                if present:
+                    name = region["name"]
+                    score += 30 if name == "head" else 30 if name == "feet" else 25
+            crop_area_ratio = (crop_width * crop_height) / float(width * height)
+            if crop_area_ratio < 0.45 and not composition["allow_zoom"]:
+                score -= 40
+            distance = abs((x0 + crop_width / 2.0) - width / 2.0) / max(width, 1)
+            distance += abs((y0 + crop_height / 2.0) - height / 2.0) / max(height, 1)
+            score -= distance * (10.0 if composition["preserve_environment"] else 4.0)
+            candidates.append({
+                "window": window,
+                "score": round(float(score), 3),
+                "missing": [region["name"] for region in missing],
+                "safe": not missing,
+            })
+
+    candidates.sort(key=lambda item: (item["safe"], item["score"]), reverse=True)
+    if not any(candidate["safe"] for candidate in candidates) and required:
+        padded = _pad_to_ratio(rgb_float, crop_target)
+        return {
+            "crop": padded,
+            "crop_box": [0, 0, width, height],
+            "score": 90.0,
+            "safe": True,
+            "missing": [],
+            "candidates": len(candidates),
+            "subject_type": composition["subject_type"],
+            "protected_regions": composition["protected_regions"],
+            "composition": composition,
+            "crop_target": crop_target,
+            "feasible": False,
+            "mode": "padded_safe",
+        }
+    chosen = candidates[0] if candidates else {
+        "window": (0, 0, crop_width, crop_height), "score": -100.0,
+        "missing": [region["name"] for region in required], "safe": False,
+    }
+    x0, y0, x1, y1 = [int(value) for value in chosen["window"]]
+    result = np.ascontiguousarray(rgb_float[y0:y1, x0:x1])
+    return {
+        "crop": result,
+        "crop_box": [x0, y0, x1, y1],
+        "score": chosen["score"],
+        "safe": chosen["safe"],
+        "missing": chosen["missing"],
+        "candidates": len(candidates),
+        "subject_type": composition["subject_type"],
+        "protected_regions": composition["protected_regions"],
+        "composition": composition,
+        "crop_target": crop_target,
+        "feasible": feasible,
+        "mode": "crop",
+    }
+
+
 def _saliency_anchor(rgb):
     """Estimate where the visual interest is without any ML model.
 
@@ -1021,14 +1402,14 @@ def process_photo(cfg, src, out_root, output_stem=None):
 
         # Get editing plan
         plan = build_editing_plan(
-            rgb, crop_target=ratio, src=src, scene_override=scene_plan
+            source_rgb, crop_target=ratio, src=src, scene_override=scene_plan
         )
 
         # Crop and grade. Keep the scene's subject in frame when the vision
         # model supplied a box or a local face was detected. The vision plan
         # also has format-specific composition priorities; the story is allowed
         # to focus more tightly on the subject than the feed post.
-        creative_direction = (scene_plan or {}).get("creative_direction") or {}
+        creative_direction = (plan or {}).get("creative_direction") or {}
         composition = creative_direction.get("composition", {}) if isinstance(creative_direction, dict) else {}
         composition_key = "story_9_16" if fmt == "STORIES" else "post_4_5"
         format_comp = composition.get(composition_key, {}) if isinstance(composition, dict) else {}
@@ -1041,10 +1422,29 @@ def process_photo(cfg, src, out_root, output_stem=None):
                 0.5 * (1.0 - subject_priority) + crop_anchor[0] * subject_priority,
                 0.45 * (1.0 - subject_priority) + crop_anchor[1] * subject_priority,
             )
-        # Use identical geometry for the working image and the untouched
-        # reference crop. Color QA must compare like-for-like pixels.
-        reference_crop = _crop_to_ratio(source_rgb, ratio, anchor=crop_anchor)
-        crop = _crop_to_ratio(rgb, ratio, anchor=crop_anchor)
+        # Subject-preserving crop selection is shared by the source reference
+        # and the working image. Color QA must compare identical pixels.
+        crop_decision = select_safe_crop(
+            source_rgb, ratio, plan=plan, anchor=crop_anchor
+        )
+        if crop_decision.get("mode") == "padded_safe":
+            # A fixed ratio can be mathematically impossible without cutting a
+            # required region. Keep the complete source and add a restrained,
+            # blurred edge extension instead of sacrificing the subject.
+            reference_crop = np.ascontiguousarray(crop_decision["crop"])
+            crop = np.ascontiguousarray(_pad_to_ratio(rgb, ratio))
+        else:
+            x0, y0, x1, y1 = crop_decision["crop_box"]
+            reference_crop = np.ascontiguousarray(source_rgb[y0:y1, x0:x1])
+            crop = np.ascontiguousarray(rgb[y0:y1, x0:x1])
+        plan["crop_decision"] = {
+            key: value for key, value in crop_decision.items() if key != "crop"
+        }
+        plan["composition_plan"] = crop_decision["composition"]
+        if not crop_decision["safe"]:
+            logger.warn(
+                f"[{fmt}] No fully safe crop found; missing: {crop_decision['missing']}"
+            )
         reference_profile = analyze_color_reference(reference_crop)
         # The vision model supplies a bounded grading nudge.  Keep the local
         # scene defaults as the base and apply the model intent on top. The
