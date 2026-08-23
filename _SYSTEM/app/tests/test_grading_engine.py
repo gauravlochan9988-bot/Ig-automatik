@@ -427,6 +427,15 @@ class GradingEngineTests(unittest.TestCase):
                         "sky_importance": 0.9,
                         "preserve_colors": ["orange", "blue"],
                         "grading_intent": {"warmth": 0.4, "contrast": 0.2, "saturation": 0.3},
+                        "creative_direction": {
+                            "preserve": ["face", "skin tones", "sunset sky", "ocean"],
+                            "light_mood": "golden_hour",
+                            "style_family": "warm_travel",
+                            "composition": {
+                                "post_4_5": {"subject_priority": 0.82, "environment_priority": 0.70},
+                                "story_9_16": {"subject_priority": 0.93, "environment_priority": 0.45}
+                            }
+                        },
                         "instagram": {
                             "hook": "Chasing sunsets in Miami 🌅",
                             "caption": "Nothing beats this Florida sky.",
@@ -454,6 +463,11 @@ class GradingEngineTests(unittest.TestCase):
                 self.assertIn("instagram", res)
                 self.assertEqual(res["instagram"]["hook"], "Chasing sunsets in Miami 🌅")
                 self.assertEqual(res["instagram"]["hashtags"], ["#MiamiLife", "#SunsetLovers", "#VacationMode"])
+                self.assertEqual(res["creative_direction"]["light_mood"], "golden_hour")
+                self.assertEqual(res["creative_direction"]["preserve"], ["face", "skin tones", "sunset sky", "ocean"])
+                self.assertAlmostEqual(
+                    res["creative_direction"]["composition"]["story_9_16"]["subject_priority"], 0.93
+                )
             finally:
                 f_path.unlink(missing_ok=True)
 

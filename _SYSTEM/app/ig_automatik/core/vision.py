@@ -45,6 +45,15 @@ Reply with JSON only, no prose:
   "sky_importance": 0.0-1.0,
   "preserve_colors": ["colours that must not shift, e.g. skin tones"],
   "grading_intent": {"warmth": -1.0-1.0, "contrast": -1.0-1.0, "saturation": -1.0-1.0},
+  "creative_direction": {
+    "preserve": ["important details to retain: face, skin tones, sky, environment"],
+    "light_mood": "golden_hour|soft_daylight|harsh_sun|blue_hour|night_neon|indoor_warm|party_flash|general",
+    "style_family": "warm_travel|editorial_portrait|documentary_travel|night_cinematic|nature_rich|clean_creator",
+    "composition": {
+      "post_4_5": {"subject_priority": 0.0-1.0, "environment_priority": 0.0-1.0},
+      "story_9_16": {"subject_priority": 0.0-1.0, "environment_priority": 0.0-1.0}
+    }
+  },
   "instagram": {
     "hook": "Catchy 1-line hook or opening with emoji",
     "caption": "Short, natural, engaging caption (1-2 sentences)",
@@ -216,6 +225,35 @@ def analyze(src: Path) -> Optional[Dict]:
 
     usage = body.get("usage") or {}
 
+    creative_raw = data.get("creative_direction") or {}
+    if not isinstance(creative_raw, dict):
+        creative_raw = {}
+    preserve_items = creative_raw.get("preserve") or []
+    if not isinstance(preserve_items, list):
+        preserve_items = []
+    composition_raw = creative_raw.get("composition") or {}
+    if not isinstance(composition_raw, dict):
+        composition_raw = {}
+
+    def _format_composition(format_key, fallback_subject, fallback_environment):
+        values = composition_raw.get(format_key) or {}
+        if not isinstance(values, dict):
+            values = {}
+        return {
+            "subject_priority": _clamp(values.get("subject_priority"), 0.0, 1.0, fallback_subject),
+            "environment_priority": _clamp(values.get("environment_priority"), 0.0, 1.0, fallback_environment),
+        }
+
+    creative_direction = {
+        "preserve": [str(item)[:60] for item in preserve_items[:10]],
+        "light_mood": str(creative_raw.get("light_mood", "general"))[:40].lower(),
+        "style_family": str(creative_raw.get("style_family", ""))[:50].lower(),
+        "composition": {
+            "post_4_5": _format_composition("post_4_5", 0.80, 0.70),
+            "story_9_16": _format_composition("story_9_16", 0.90, 0.45),
+        },
+    }
+
     ig_data = data.get("instagram") or {}
     instagram = None
     if isinstance(ig_data, dict) and ig_data:
@@ -246,6 +284,7 @@ def analyze(src: Path) -> Optional[Dict]:
             "contrast": _clamp(intent_raw.get("contrast"), -1.0, 1.0, 0.0),
             "saturation": _clamp(intent_raw.get("saturation"), -1.0, 1.0, 0.0),
         },
+        "creative_direction": creative_direction,
         "instagram": instagram,
         "provider": "openrouter",
         "model": model,

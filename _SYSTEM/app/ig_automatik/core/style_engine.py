@@ -57,15 +57,24 @@ def build_style_intent(scene_plan: Optional[Dict[str, Any]], account_style=None)
     """
     account = account_style or load_account_style()
     scene = scene_plan or {}
-    scene_type = str(scene.get("scene_type", "general")).lower()
-    subject = str(scene.get("main_subject", "")).lower()
-    text = f"{scene_type} {subject}"
+    scene_type = str(scene.get("scene_type", "")).lower()
+    main_subject = str(scene.get("main_subject", "")).lower()
+    text = f"{scene_type} {main_subject}"
+    creative = scene.get("creative_direction") or {}
+    if not isinstance(creative, dict):
+        creative = {}
+    preserve = [str(item).lower() for item in (creative.get("preserve") or [])]
+    vision_family = str(creative.get("style_family", "")).lower()
+    light_mood = str(creative.get("light_mood", "general")).lower()
 
     family = "documentary"
-    preserve_skin = any(word in text for word in ("person", "portrait", "woman", "man", "wedding", "face"))
-    preserve_sky = scene_type in ("sunset", "landscape") or any(word in text for word in ("beach", "ocean", "sky", "sunset"))
+    preserve_skin = any(word in f"{text} {' '.join(preserve)}" for word in ("person", "portrait", "woman", "man", "wedding", "face", "skin"))
+    preserve_sky = scene_type in ("sunset", "landscape") or any(word in f"{text} {' '.join(preserve)}" for word in ("beach", "ocean", "sky", "sunset"))
 
-    if any(word in text for word in ("beach", "ocean", "pool", "sunset", "summer", "florida")):
+    allowed_families = {"warm_travel", "editorial_portrait", "documentary_travel", "night_cinematic", "nature_rich", "clean_creator"}
+    if vision_family in allowed_families:
+        family = vision_family
+    elif any(word in text for word in ("beach", "ocean", "pool", "sunset", "summer", "florida")):
         family = "warm_travel"
     elif scene_type == "night" or any(word in text for word in ("party", "club", "concert", "neon")):
         family = "night_cinematic"
@@ -78,6 +87,8 @@ def build_style_intent(scene_plan: Optional[Dict[str, Any]], account_style=None)
 
     return {
         "family": family,
+        "light_mood": light_mood,
+        "preserve": preserve,
         "preserve_skin": preserve_skin,
         "preserve_sky": preserve_sky,
         "contrast_preference": account["contrast"],

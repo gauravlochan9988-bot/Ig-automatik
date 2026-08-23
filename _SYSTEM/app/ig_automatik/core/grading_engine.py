@@ -746,8 +746,23 @@ def process_photo(cfg, src, out_root, output_stem=None):
         )
 
         # Crop and grade. Keep the scene's subject in frame when the vision
-        # model supplied a box or a local face was detected.
-        crop = _crop_to_ratio(rgb, ratio, anchor=anchor)
+        # model supplied a box or a local face was detected. The vision plan
+        # also has format-specific composition priorities; the story is allowed
+        # to focus more tightly on the subject than the feed post.
+        creative_direction = (scene_plan or {}).get("creative_direction") or {}
+        composition = creative_direction.get("composition", {}) if isinstance(creative_direction, dict) else {}
+        composition_key = "story_9_16" if fmt == "STORIES" else "post_4_5"
+        format_comp = composition.get(composition_key, {}) if isinstance(composition, dict) else {}
+        subject_priority = float(format_comp.get("subject_priority", 0.90 if fmt == "STORIES" else 0.80))
+        crop_anchor = anchor
+        if crop_anchor is not None and subject_priority < 0.75:
+            # Environment-preserving plans gently pull an uncertain anchor toward
+            # the stable frame center; a confirmed face/vision box still wins.
+            crop_anchor = (
+                0.5 * (1.0 - subject_priority) + crop_anchor[0] * subject_priority,
+                0.45 * (1.0 - subject_priority) + crop_anchor[1] * subject_priority,
+            )
+        crop = _crop_to_ratio(rgb, ratio, anchor=crop_anchor)
         # The vision model supplies a bounded grading nudge.  Keep the local
         # scene defaults as the base and apply the model intent on top. The
         # scene analysis is shared by both variants instead of being recomputed.

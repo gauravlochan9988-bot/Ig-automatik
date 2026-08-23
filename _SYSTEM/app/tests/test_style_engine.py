@@ -29,6 +29,21 @@ class StyleEngineTests(unittest.TestCase):
         self.assertGreater(chosen["strength"], 0.0)
         self.assertNotIn("DisplayP3", chosen["name"])
 
+    def test_vision_creative_direction_guides_style_but_stays_locally_validated(self):
+        intent = style_engine.build_style_intent({
+            "scene_type": "general",
+            "main_subject": "woman by the ocean",
+            "creative_direction": {
+                "style_family": "warm_travel",
+                "light_mood": "golden_hour",
+                "preserve": ["skin tones", "sunset sky"],
+            },
+        })
+        self.assertEqual(intent["family"], "warm_travel")
+        self.assertEqual(intent["light_mood"], "golden_hour")
+        self.assertTrue(intent["preserve_skin"])
+        self.assertTrue(intent["preserve_sky"])
+
     def test_lut_blend_strength_is_bounded(self):
         original = np.zeros((2, 2, 3), dtype=np.float32)
         transformed = np.ones((2, 2, 3), dtype=np.float32)
