@@ -1,0 +1,301 @@
+const input = document.querySelector('#media-input');
+const selection = document.querySelector('#selection');
+const uploadButton = document.querySelector('#upload-button');
+const jobs = document.querySelector('#jobs');
+const refreshButton = document.querySelector('#refresh-button');
+const filter = document.querySelector('#filter');
+const search = document.querySelector('#search');
+const historyActions = document.querySelector('#history-actions');
+const themeToggle = document.querySelector('#theme-toggle');
+const soundToggle = document.querySelector('#sound-toggle');
+let selectedFiles = [];
+let allJobs = [];
+let lastJobsSignature = '';
+let audioContext;
+
+function applyTheme(retro) {
+  document.body.classList.toggle('retro', retro);
+  themeToggle.textContent = retro ? 'Normales Design' : 'Retro testen';
+  themeToggle.setAttribute('aria-pressed', String(retro));
+}
+
+applyTheme(localStorage.getItem('ig-automatik-theme') === 'retro');
+themeToggle.addEventListener('click', () => {
+  const retro = !document.body.classList.contains('retro');
+  localStorage.setItem('ig-automatik-theme', retro ? 'retro' : 'normal');
+  applyTheme(retro);
+  playSound('click');
+});
+
+function applySound(enabled) {
+  soundToggle.textContent = enabled ? 'Sound: an' : 'Sound: aus';
+  soundToggle.setAttribute('aria-pressed', String(enabled));
+}
+
+applySound(localStorage.getItem('ig-automatik-sound') === 'on');
+soundToggle.addEventListener('click', () => {
+  const enabled = localStorage.getItem('ig-automatik-sound') !== 'on';
+  localStorage.setItem('ig-automatik-sound', enabled ? 'on' : 'off');
+  applySound(enabled);
+  if (enabled) playSound('success');
+});
+
+function playSound(kind = 'click') {
+  if (localStorage.getItem('ig-automatik-sound') !== 'on') return;
+  try {
+    audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+    if (audioContext.state === 'suspended') audioContext.resume();
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    const now = audioContext.currentTime;
+    oscillator.type = 'square';
+    oscillator.frequency.setValueAtTime(kind === 'success' ? 660 : 440, now);
+    oscillator.frequency.exponentialRampToValueAtTime(kind === 'success' ? 880 : 330, now + 0.07);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.035, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+    oscillator.connect(gain).connect(audioContext.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.1);
+  } catch {
+    // Sound is optional; the app must continue normally if audio is blocked.
+  }
+}
+
+input.addEventListener('change', () => {
+  selectedFiles = Array.from(input.files || []);
+  selection.textContent = selectedFiles.length
+    ? selectedFiles.map(file => `${file.name} (${formatBytes(file.size)})`).join(', ')
+    : '';
+  uploadButton.disabled = selectedFiles.length === 0;
+});
+
+uploadButton.addEventListener('click', async () => {
+  playSound('click');
+  uploadButton.disabled = true;
+  try {
+    for (let index = 0; index < selectedFiles.length; index++) {
+      const file = selectedFiles[index];
+      uploadButton.textContent = `Upload ${index + 1}/${selectedFiles.length} …`;
+      await upload(file, (percent) => {
+        uploadButton.textContent = `Upload ${index + 1}/${selectedFiles.length} · ${percent}%`;
+      });
+    }
+    selectedFiles = [];
+    input.value = '';
+    selection.textContent = 'Upload abgeschlossen. Verarbeitung läuft.';
+    await loadJobs();
+    playSound('success');
+  } catch (error) {
+    alert(error.message || 'Upload fehlgeschlagen.');
+  } finally {
+    uploadButton.disabled = selectedFiles.length === 0;
+    uploadButton.textContent = 'Verarbeitung starten';
+  }
+});
+
+refreshButton.addEventListener('click', () => { playSound('click'); loadJobs(true); });
+filter.addEventListener('change', () => renderJobs(allJobs));
+search.addEventListener('input', () => renderJobs(allJobs));
+
+function upload(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open('POST', '/api/upload');
+    request.setRequestHeader('Content-Type', 'application/octet-stream');
+    request.setRequestHeader('X-Filename', encodeURIComponent(file.name));
+    request.upload.onprogress = event => {
+      if (event.lengthComputable && onProgress) onProgress(Math.round(event.loaded / event.total * 100));
+    };
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) resolve();
+      else reject(new Error(readError(request.responseText)));
+    };
+    request.onerror = () => reject(new Error('Der Server ist nicht erreichbar.'));
+    request.send(file);
+  });
+}
+
+async function loadJobs(force = false) {
+  try {
+    const response = await fetch('/api/jobs', { cache: 'no-store' });
+    if (!response.ok) throw new Error('Status konnte nicht geladen werden.');
+    const data = await response.json();
+    allJobs = data.jobs || [];
+    // Do not rebuild image/video cards when nothing changed. Replacing the
+    // cards every few seconds makes Safari visibly reload the previews.
+    const signature = JSON.stringify(allJobs);
+    if (force || signature !== lastJobsSignature) {
+      lastJobsSignature = signature;
+      renderJobs(allJobs);
+    }
+  } catch (error) {
+    jobs.innerHTML = `<div class="empty error">${escapeHtml(error.message)}</div>`;
+  }
+}
+
+function renderJobs(items) {
+  const selectedFilter = filter.value;
+  const searchTerm = search.value.trim().toLowerCase();
+  items = selectedFilter === 'all'
+    ? items
+    : items.filter(job => Object.prototype.hasOwnProperty.call(job.outputs || {}, selectedFilter));
+  if (searchTerm) {
+    items = items.filter(job => String(job.original_name || '').toLowerCase().includes(searchTerm));
+  }
+  const totalFiltered = items.length;
+  if (!items.length) {
+    jobs.innerHTML = `<div class="empty">${searchTerm ? 'Keine passenden Dateien.' : selectedFilter === 'all' ? 'Noch keine Uploads.' : `Noch keine ${selectedFilter}-Ergebnisse.`}</div>`;
+    historyActions.innerHTML = '';
+    return;
+  }
+  // No artificial history limit: every job returned by the local bridge stays
+  // accessible. Search and format filters keep a long history usable.
+  jobs.innerHTML = items.map(job => {
+    const formats = selectedFilter === 'all' ? Object.entries(job.outputs || {}) : [[selectedFilter, job.outputs[selectedFilter]]];
+    const outputGroups = formats.map(([format, files]) => `
+      <div class="format-block">
+        <div class="format-title">${formatLabel(format)}</div>
+        <div class="variants">${files.map(file => variantCard(file)).join('')}</div>
+      </div>`).join('');
+    const statusText = { done: 'Fertig', processing: 'Wird verarbeitet', waiting: 'Wartet auf Verarbeitung' }[job.status] || job.status;
+    return `<article class="job">
+    <div class="job-top"><div><strong>${escapeHtml(job.original_name)}</strong><small>${formatDate(job.created)}</small></div><span class="status ${job.status}">${statusText}</span></div>
+      ${outputGroups || '<div class="progress"><span></span></div>'}
+    </article>`;
+  }).join('');
+  bindShareButtons();
+  historyActions.innerHTML = `<small class="history-note">${totalFiltered} ${totalFiltered === 1 ? 'Ergebnis' : 'Ergebnisse'} angezeigt</small>`;
+}
+
+function variantCard(file) {
+  const video = /\.(mp4|mov|avi|mkv|webm|m4v|3gp)$/i.test(file.name);
+  const preview = video
+    ? `<video class="preview" src="${file.preview_url}" poster="${file.poster_url || ''}" controls preload="metadata" playsinline></video>`
+    : `<img class="preview" src="${file.preview_url}" alt="Variante ${file.variant}" loading="lazy">`;
+  return `<div class="variant-card">
+    <div class="variant-heading"><strong>Variante ${file.variant}</strong><span>${file.variant === 'A' ? 'Natural' : 'Cinematic'}</span></div>
+    ${preview}
+    <div class="card-actions">
+      <button class="share" data-url="${file.url}" data-name="${escapeHtml(file.name)}">In Fotos sichern</button>
+      <a class="download ${file.variant === 'B' ? 'accent' : ''}" data-download="true" data-preview="${file.preview_url}" data-url="${file.url}" data-name="${escapeHtml(file.name)}" data-video="${video}" href="${file.url}">Herunterladen</a>
+    </div>
+    ${file.master_url ? `<div class="master-actions"><button class="share master-share" data-url="${file.master_url}" data-name="${escapeHtml(file.master_name)}">Vollqualität sichern</button></div>` : `<div class="master-missing">Vollqualität derzeit nicht im Archiv gefunden</div>`}
+  </div>`;
+}
+
+function formatLabel(format) {
+  return { POSTS: 'Instagram-Post · 4:5', STORIES: 'Story · 9:16', REELS: 'Reel · 9:16' }[format] || format;
+}
+
+async function shareOutput(url, filename) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Datei konnte nicht geladen werden.');
+    const blob = await response.blob();
+    const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
+    if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+      await navigator.share({ title: 'IG-AUTOMATIK', files: [file] });
+      return;
+    }
+    openMediaViewer({ downloadUrl: url, previewUrl: url, filename });
+  } catch (error) {
+    if (error.name !== 'AbortError') alert(error.message || 'Sichern fehlgeschlagen.');
+  }
+}
+
+let mediaViewer;
+
+function inlineUrl(url) {
+  return `${url}${url.includes('?') ? '&' : '?'}inline=1`;
+}
+
+function createMediaViewer() {
+  const root = document.createElement('div');
+  root.className = 'media-viewer';
+  root.hidden = true;
+  root.innerHTML = `
+    <div class="viewer-panel" role="dialog" aria-modal="true" aria-label="Datei ansehen">
+      <div class="viewer-top"><strong class="viewer-title"></strong><button class="viewer-close" type="button" aria-label="Schließen">×</button></div>
+      <div class="viewer-media"></div>
+      <div class="viewer-actions">
+        <button class="share viewer-share" type="button">In Fotos sichern</button>
+        <a class="download viewer-download" target="_blank" rel="noopener noreferrer">Datei herunterladen</a>
+      </div>
+      <p class="viewer-hint">Mit „Datei herunterladen“ öffnet sich der iPhone-Download. Danach kommst du über das X hierher zurück.</p>
+    </div>`;
+  document.body.appendChild(root);
+  const close = () => {
+    root.hidden = true;
+    document.body.classList.remove('viewer-open');
+    root.querySelector('.viewer-media').replaceChildren();
+  };
+  root.querySelector('.viewer-close').addEventListener('click', close);
+  root.addEventListener('click', event => { if (event.target === root) close(); });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && !root.hidden) close(); });
+  return { root, close };
+}
+
+function openMediaViewer({ downloadUrl, previewUrl, filename, video = false }) {
+  if (!mediaViewer) mediaViewer = createMediaViewer();
+  const { root } = mediaViewer;
+  const media = root.querySelector('.viewer-media');
+  const safeName = filename || 'Datei';
+  root.querySelector('.viewer-title').textContent = safeName;
+  media.replaceChildren();
+  const element = document.createElement(video ? 'video' : 'img');
+  element.className = 'viewer-preview';
+  element.src = inlineUrl(previewUrl || downloadUrl);
+  if (video) {
+    element.controls = true;
+    element.preload = 'metadata';
+    element.playsInline = true;
+  } else {
+    element.alt = safeName;
+  }
+  media.appendChild(element);
+  const download = root.querySelector('.viewer-download');
+  download.href = downloadUrl;
+  download.download = safeName;
+  const share = root.querySelector('.viewer-share');
+  share.onclick = () => shareOutput(downloadUrl, safeName);
+  root.hidden = false;
+  document.body.classList.add('viewer-open');
+}
+
+function bindShareButtons() {
+  document.querySelectorAll('.share').forEach(button => {
+    button.addEventListener('click', () => { playSound('click'); shareOutput(button.dataset.url, button.dataset.name); });
+  });
+  document.querySelectorAll('[data-download="true"]').forEach(link => {
+    link.addEventListener('click', event => {
+      event.preventDefault();
+      playSound('click');
+      openMediaViewer({
+        downloadUrl: link.dataset.url || link.href,
+        previewUrl: link.dataset.preview || link.href,
+        filename: link.dataset.name || 'Datei',
+        video: link.dataset.video === 'true',
+      });
+    });
+  });
+}
+
+function formatBytes(value) {
+  if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
+  return `${(value / 1024 / 1024).toFixed(1)} MB`;
+}
+function formatDate(value) {
+  try { return new Date(value).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }); }
+  catch { return ''; }
+}
+function readError(text) {
+  try { return JSON.parse(text).error || 'Upload fehlgeschlagen.'; }
+  catch { return 'Upload fehlgeschlagen.'; }
+}
+function escapeHtml(value) {
+  return String(value).replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+}
+
+loadJobs();
+setInterval(loadJobs, 3000);

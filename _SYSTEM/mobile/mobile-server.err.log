@@ -1,0 +1,1332 @@
+----------------------------------------
+----------------------------------------
+----------------------------------------
+----------------------------------------
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('100.71.103.9', 58908)
+Exception occurred during processing of request from ('100.71.103.9', 58906)
+Exception occurred during processing of request from ('100.71.103.9', 58909)
+Exception occurred during processing of request from ('100.71.103.9', 58910)
+Exception occurred during processing of request from ('100.71.103.9', 58911)
+Exception occurred during processing of request from ('100.71.103.9', 58907)
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+Traceback (most recent call last):
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+
+During handling of the above exception, another exception occurred:
+
+
+During handling of the above exception, another exception occurred:
+
+
+During handling of the above exception, another exception occurred:
+
+
+During handling of the above exception, another exception occurred:
+
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+----------------------------------------
+----------------------------------------
+----------------------------------------
+----------------------------------------
+----------------------------------------
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+----------------------------------------
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('100.71.103.9', 58930)
+Exception occurred during processing of request from ('100.71.103.9', 58927)
+----------------------------------------
+Traceback (most recent call last):
+Exception occurred during processing of request from ('100.71.103.9', 58931)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+Traceback (most recent call last):
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+
+During handling of the above exception, another exception occurred:
+
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+Traceback (most recent call last):
+
+During handling of the above exception, another exception occurred:
+
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+----------------------------------------
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+Traceback (most recent call last):
+----------------------------------------
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('100.71.103.9', 58928)
+----------------------------------------
+Exception occurred during processing of request from ('100.71.103.9', 58929)
+Traceback (most recent call last):
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+Traceback (most recent call last):
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+
+During handling of the above exception, another exception occurred:
+
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+Traceback (most recent call last):
+
+During handling of the above exception, another exception occurred:
+
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+----------------------------------------
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+----------------------------------------
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('100.71.103.9', 58943)
+Exception occurred during processing of request from ('100.71.103.9', 58944)
+----------------------------------------
+Traceback (most recent call last):
+Exception occurred during processing of request from ('100.71.103.9', 58945)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+Traceback (most recent call last):
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+Traceback (most recent call last):
+----------------------------------------
+
+During handling of the above exception, another exception occurred:
+
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+Exception occurred during processing of request from ('100.71.103.9', 58947)
+Traceback (most recent call last):
+
+During handling of the above exception, another exception occurred:
+
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+Traceback (most recent call last):
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+
+During handling of the above exception, another exception occurred:
+
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+
+During handling of the above exception, another exception occurred:
+
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+----------------------------------------
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+----------------------------------------
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+----------------------------------------
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('100.71.103.9', 58926)
+Traceback (most recent call last):
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+----------------------------------------
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('100.71.103.9', 58946)
+Exception occurred during processing of request from ('100.71.103.9', 58948)
+Traceback (most recent call last):
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+Traceback (most recent call last):
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+
+During handling of the above exception, another exception occurred:
+
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+Traceback (most recent call last):
+
+During handling of the above exception, another exception occurred:
+
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+----------------------------------------
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+----------------------------------------
+----------------------------------------
+----------------------------------------
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('100.71.103.9', 58963)
+Exception occurred during processing of request from ('100.71.103.9', 58964)
+Exception occurred during processing of request from ('100.71.103.9', 58962)
+Exception occurred during processing of request from ('100.71.103.9', 58961)
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+
+During handling of the above exception, another exception occurred:
+
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+
+During handling of the above exception, another exception occurred:
+
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+----------------------------------------
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+----------------------------------------
+----------------------------------------
+----------------------------------------
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('100.71.103.9', 58980)
+Exception occurred during processing of request from ('100.71.103.9', 58979)
+----------------------------------------
+Traceback (most recent call last):
+Exception occurred during processing of request from ('100.71.103.9', 58960)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+Traceback (most recent call last):
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+
+During handling of the above exception, another exception occurred:
+
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+Traceback (most recent call last):
+
+During handling of the above exception, another exception occurred:
+
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+----------------------------------------
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+Traceback (most recent call last):
+----------------------------------------
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+----------------------------------------
+----------------------------------------
+----------------------------------------
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+Exception occurred during processing of request from ('100.71.103.9', 58978)
+Exception occurred during processing of request from ('100.71.103.9', 58981)
+Exception occurred during processing of request from ('100.71.103.9', 58965)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+Traceback (most recent call last):
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+Traceback (most recent call last):
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+----------------------------------------
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+
+During handling of the above exception, another exception occurred:
+
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+----------------------------------------
+----------------------------------------
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('100.71.103.9', 58982)
+Traceback (most recent call last):
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('100.71.103.9', 58983)
+Traceback (most recent call last):
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+----------------------------------------
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('100.71.103.9', 58996)
+Exception occurred during processing of request from ('100.71.103.9', 58998)
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+
+During handling of the above exception, another exception occurred:
+
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+----------------------------------------
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('100.71.103.9', 58995)
+Traceback (most recent call last):
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+----------------------------------------
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('100.71.103.9', 58997)
+Exception occurred during processing of request from ('100.71.103.9', 58999)
+Traceback (most recent call last):
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+Traceback (most recent call last):
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+
+During handling of the above exception, another exception occurred:
+
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+Traceback (most recent call last):
+
+During handling of the above exception, another exception occurred:
+
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+----------------------------------------
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('100.71.103.9', 59000)
+Traceback (most recent call last):
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 278, in do_GET
+    self._send_file(file_path, attachment=False)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 369, in _send_file
+    self.wfile.write(chunk)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionResetError: [WinError 10054] Eine vorhandene Verbindung wurde vom Remotehost geschlossen
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 300, in do_GET
+    self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+  File "S:\all my projects\IG-AUTOMATIK\_SYSTEM\mobile\server.py", line 247, in send_json
+    self.end_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 538, in end_headers
+    self.flush_headers()
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\http\server.py", line 542, in flush_headers
+    self.wfile.write(b"".join(self._headers_buffer))
+  File "C:\Users\Gaura\AppData\Local\Programs\Python\Python312\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+ConnectionAbortedError: [WinError 10053] Eine bestehende Verbindung wurde softwaregesteuert
+durch den Hostcomputer abgebrochen
+----------------------------------------

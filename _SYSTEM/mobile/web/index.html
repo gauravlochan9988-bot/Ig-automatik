@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/style.css">
+  <title>IG-AUTOMATIK</title>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div class="eyebrow">PRIVATE MEDIA WORKFLOW</div>
+      <h1>IG-AUTOMATIK</h1>
+      <p class="subtitle">Fotos und Videos vom iPhone direkt in deine bestehende Pipeline senden.</p>
+      <button id="theme-toggle" class="theme-toggle" type="button">Retro testen</button>
+      <button id="sound-toggle" class="theme-toggle" type="button">Sound: aus</button>
+    </header>
+
+    <section class="card upload-card">
+      <label class="picker" for="media-input">
+        <span class="picker-icon">＋</span>
+        <span><strong>Dateien auswählen</strong><small>Fotos oder Videos vom iPhone</small></span>
+      </label>
+      <input id="media-input" type="file" accept="image/*,video/*" multiple>
+      <div id="selection" class="selection"></div>
+      <button id="upload-button" class="primary" disabled>Verarbeitung starten</button>
+      <p class="hint">Nur im privaten WLAN oder Tailscale-Netz verwenden. Downloads öffnen separat, die App bleibt erhalten.</p>
+    </section>
+
+    <section class="section-heading">
+      <h2>Deine letzten Dateien</h2>
+      <div class="tools">
+        <input id="search" class="search" type="search" placeholder="Suchen …" aria-label="Historie durchsuchen">
+        <select id="filter" aria-label="Dateien filtern">
+          <option value="all">Alle</option>
+          <option value="POSTS">Posts</option>
+          <option value="STORIES">Stories</option>
+          <option value="REELS">Reels</option>
+        </select>
+        <button id="refresh-button" class="refresh" aria-label="Aktualisieren">↻</button>
+      </div>
+    </section>
+    <section id="jobs" class="jobs"><div class="empty">Noch keine Uploads.</div></section>
+    <div id="history-actions" class="history-actions"></div>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
