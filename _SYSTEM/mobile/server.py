@@ -235,27 +235,42 @@ class MobileBridge:
     def snapshot(self, job: dict) -> dict:
         outputs = self._output_files(job)
         source = self.input_dir / job["source_name"]
-        manifests = [
-            path for format_name in FORMATS
-            for path in [self.manifests_dir / f"{job['stem']}_{format_name}_manifest.json"]
-            if path.is_file() and path.stat().st_size > 0
-        ]
-        if outputs:
-            status = "done"
-        elif source.exists():
+        manifests = self.successful_manifests(job)
+        # Status is derived from the current job state only. Reprocess source
+        # discovery is intentionally not part of this polling path; it occurs
+        # only after the user explicitly presses "Erneut verarbeiten".
+        if source.is_file() and not outputs:
             status = "processing"
+        elif outputs:
+            status = "done"
         elif manifests:
             status = "missing_outputs"
         else:
             status = "not_received"
-        reprocess_available = self.reprocess_source(job) is not None
         return {
             **job,
             "status": status,
             "outputs": outputs,
             "manifest_available": bool(manifests),
-            "reprocess_available": reprocess_available,
         }
+
+    def successful_manifests(self, job: dict) -> list[Path]:
+        """Return valid completion manifests without looking for old media."""
+        manifests = []
+        for format_name in FORMATS:
+            path = self.manifests_dir / f"{job['stem']}_{format_name}_manifest.json"
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError, json.JSONDecodeError):
+                continue
+            # Photo manifests use ``files``; video manifests use ``outputs``.
+            # Both are written only after successful export verification.
+            if isinstance(payload, dict) and (
+                isinstance(payload.get("files"), dict)
+                or isinstance(payload.get("outputs"), dict)
+            ):
+                manifests.append(path)
+        return manifests
 
     def list_jobs(self) -> list[dict]:
         jobs = []

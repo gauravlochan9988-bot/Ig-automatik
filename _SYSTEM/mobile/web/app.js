@@ -168,9 +168,10 @@ function renderJobs(items) {
       missing_outputs: 'Manifest vorhanden, aber die fertigen Dateien fehlen.',
       not_received: 'Kein Original und kein Abschluss-Manifest gefunden.',
     }[job.status];
+    const canReprocess = job.status === 'done' || job.status === 'missing_outputs';
     const historyButtons = `
       <div class="job-actions">
-        ${job.reprocess_available ? `<button class="reprocess" data-job-id="${escapeHtml(job.id)}">Erneut verarbeiten</button>` : ''}
+        ${canReprocess ? `<button class="reprocess" data-job-id="${escapeHtml(job.id)}">Erneut verarbeiten</button>` : ''}
         <button class="history-remove" data-job-id="${escapeHtml(job.id)}">Eintrag entfernen</button>
       </div>`;
     const pendingView = job.status === 'processing'
