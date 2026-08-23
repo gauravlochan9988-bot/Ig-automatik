@@ -32,6 +32,13 @@ FORMATS = ("POSTS", "STORIES", "REELS")
 MAX_UPLOAD_BYTES = 4 * 1024 * 1024 * 1024
 
 
+def _hidden_subprocess_kwargs():
+    """Prevent ffmpeg console windows when the mobile bridge runs hidden."""
+    if os.name == "nt":
+        return {"creationflags": subprocess.CREATE_NO_WINDOW}
+    return {}
+
+
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -168,7 +175,15 @@ class MobileBridge:
             for variant in ("A", "B"):
                 matches = sorted(directory.glob(f"{job['stem']}_{variant}.*")) if directory.is_dir() else []
                 for path in matches:
-                    if path.is_file() and path.suffix.lower() not in {".part", ".json"}:
+                    # Reel exports use names such as ``B.part.mp4`` while
+                    # they are being written. Never expose those temporary
+                    # files to the phone: Windows can then block the final
+                    # atomic rename when the preview is opened concurrently.
+                    if (
+                        path.is_file()
+                        and not path.stem.lower().endswith(".part")
+                        and path.suffix.lower() != ".json"
+                    ):
                         item = {
                             "variant": variant,
                             "name": path.name,
@@ -222,7 +237,10 @@ class MobileBridge:
                     "-ss", "0.5", "-i", str(video_path), "-frames:v", "1",
                     "-vf", "scale=480:-2", "-q:v", "5", str(temporary),
                 ],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                **_hidden_subprocess_kwargs(),
             )
             if result.returncode != 0 or not temporary.is_file() or temporary.stat().st_size == 0:
                 raise FileNotFoundError(filename)

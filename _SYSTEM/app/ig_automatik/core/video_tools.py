@@ -10,6 +10,13 @@ from pathlib import Path
 import cv2
 
 
+def _hidden_subprocess_kwargs():
+    """Prevent ffmpeg/ffprobe console windows on Windows background runs."""
+    if os.name == "nt":
+        return {"creationflags": subprocess.CREATE_NO_WINDOW}
+    return {}
+
+
 def _parse_fps(value):
     """Turn ffprobe's rational frame rate (e.g. 60000/1001) into a float."""
     try:
@@ -37,6 +44,7 @@ def probe_video_info(path):
                 "-of", "json", str(path),
             ],
             capture_output=True, text=True, timeout=60,
+            **_hidden_subprocess_kwargs(),
         )
         if r.returncode != 0:
             return fallback
@@ -86,7 +94,8 @@ def has_audio_stream(path):
         r = subprocess.run(
             ["ffprobe", "-v", "error", "-select_streams", "a:0",
              "-show_entries", "stream=index", "-of", "csv=p=0", str(path)],
-            capture_output=True, text=True, timeout=60
+            capture_output=True, text=True, timeout=60,
+            **_hidden_subprocess_kwargs(),
         )
         return r.returncode == 0 and bool(r.stdout.strip())
     except Exception:
@@ -104,7 +113,8 @@ def detect_scenes(src, max_segments=15):
             ["ffmpeg", "-i", str(src),
              "-vf", "select='gt(scene,0.3)',showinfo",
              "-f", "null", "-"],
-            capture_output=True, text=True, timeout=120
+            capture_output=True, text=True, timeout=120,
+            **_hidden_subprocess_kwargs(),
         )
 
         times = []
@@ -159,7 +169,8 @@ def extract_segment_frame(src, t):
         os.close(fd)
         r = subprocess.run(
             ["ffmpeg", "-y", "-ss", str(t), "-i", str(src), "-frames:v", "1", "-q:v", "2", fp],
-            capture_output=True, text=True, timeout=60
+            capture_output=True, text=True, timeout=60,
+            **_hidden_subprocess_kwargs(),
         )
         if os.path.exists(fp) and os.path.getsize(fp) > 0:
             return fp

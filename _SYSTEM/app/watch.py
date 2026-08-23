@@ -77,11 +77,25 @@ def _acquire_single_instance():
     lock = LOCK
     lock.parent.mkdir(parents=True, exist_ok=True)
     me = socket.gethostname()
-    try:
-        if lock.exists():
-            parts = lock.read_text().strip().split(None, 1)
-            pid = int(parts[0])
-            host = parts[1] if len(parts) > 1 else me
+    contents = f"{os.getpid()} {me}"
+
+    # Create the lock atomically. A check followed by write_text() has a race:
+    # two startup triggers can both observe a missing/stale lock and then both
+    # start watching the same folder.
+    for _ in range(3):
+        try:
+            with lock.open("x", encoding="utf-8") as handle:
+                handle.write(contents)
+            return
+        except FileExistsError:
+            try:
+                parts = lock.read_text(encoding="utf-8").strip().split(None, 1)
+                pid = int(parts[0])
+                host = parts[1] if len(parts) > 1 else me
+            except (FileNotFoundError, ValueError, OSError):
+                # Another starter may be replacing a stale lock. Retry the
+                # atomic create instead of allowing both processes through.
+                continue
 
             if host != me:
                 print(f"[Watchdog] A watcher is registered on '{host}' (PID {pid}).")
@@ -93,12 +107,18 @@ def _acquire_single_instance():
                 sys.exit(0)
 
             logger.info(f"Clearing stale lock from dead PID {pid}")
+            try:
+                lock.unlink()
+            except FileNotFoundError:
+                pass
+        except SystemExit:
+            raise
+        except Exception as e:
+            logger.warn(f"Single-instance check failed: {e}")
+            return
 
-        lock.write_text(f"{os.getpid()} {me}")
-    except SystemExit:
-        raise
-    except Exception as e:
-        logger.warn(f"Single-instance check failed: {e}")
+    logger.info("Another watcher acquired the lock while startup was in progress")
+    sys.exit(0)
 
 
 def _release_single_instance():

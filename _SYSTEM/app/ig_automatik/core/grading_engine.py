@@ -28,6 +28,13 @@ PHOTO_EXT = {".jpg", ".jpeg", ".png", ".gif", ".dng", ".tif", ".tiff", ".bmp", "
 VIDEO_EXT = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v", ".3gp"}
 
 
+def _hidden_subprocess_kwargs():
+    """Prevent ffmpeg console windows on Windows background runs."""
+    if os.name == "nt":
+        return {"creationflags": subprocess.CREATE_NO_WINDOW}
+    return {}
+
+
 # ============================================================================
 # Image Loading
 # ============================================================================
@@ -1548,6 +1555,7 @@ def _nvenc_available():
                 "-frames:v", "1", "-c:v", "h264_nvenc", "-f", "null", "-",
             ],
             capture_output=True, text=True, timeout=60,
+            **_hidden_subprocess_kwargs(),
         )
         return r.returncode == 0
     except Exception:
@@ -2010,7 +2018,13 @@ def process_reel(cfg, src, out_root, output_stem=None):
                     output_height=int(cfg.get("reel_master_height", 2560)),
                     grade_strength=strength,
                 )
-                r = subprocess.run(master_cmd, capture_output=True, text=True, timeout=600)
+                r = subprocess.run(
+                    master_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=600,
+                    **_hidden_subprocess_kwargs(),
+                )
                 if r.returncode != 0:
                     logger.error(f"Reel master {variant} failed", error=Exception(r.stderr[-200:]))
                     master_part.unlink(missing_ok=True)
@@ -2024,7 +2038,13 @@ def process_reel(cfg, src, out_root, output_stem=None):
                     cfg, master, part, include_audio=has_audio, use_gpu=use_gpu,
                     output_fps=fps_plan["output_fps"],
                 )
-                r = subprocess.run(delivery_cmd, capture_output=True, text=True, timeout=600)
+                r = subprocess.run(
+                    delivery_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=600,
+                    **_hidden_subprocess_kwargs(),
+                )
                 if r.returncode != 0:
                     logger.error(f"Reel delivery {variant} failed", error=Exception(r.stderr[-200:]))
                     part.unlink(missing_ok=True)
