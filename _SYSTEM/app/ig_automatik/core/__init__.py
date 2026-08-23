@@ -14,6 +14,7 @@ from .pipeline import Pipeline
 from . import vision
 from . import templates
 from . import lut_engine
+from . import style_engine
 from .video_tools import (
     probe_duration,
     detect_scenes,

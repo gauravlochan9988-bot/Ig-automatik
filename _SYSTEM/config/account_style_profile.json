@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "description": "Account-level creative direction. Values are intentionally conservative until explicit user feedback is recorded.",
+  "contrast": "medium",
+  "saturation": "controlled",
+  "skin_tone": "natural",
+  "warmth": "slightly_warm",
+  "cinematic_strength": 0.42,
+  "preferred_variant": "A",
+  "preferred_crop": "environment_preserving",
+  "text_style": "minimal",
+  "feedback_count": 0
+}

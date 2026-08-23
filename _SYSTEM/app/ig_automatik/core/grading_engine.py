@@ -279,15 +279,17 @@ def grade_variant_a(base, scene=None, intent=None):
     return np.clip(out, 0, 1)
 
 
-def grade_variant_b(base, scene=None, intent=None, lut_path=None):
-    """Premium Cinematic grading (Variant B) - 3D LUT enhanced with heuristic fallback."""
-    # 1. If a 3D .cube LUT is provided, apply professional 3D LUT transformation
+def grade_variant_b(base, scene=None, intent=None, lut_path=None, lut_strength=1.0):
+    """Premium Creative grade: local LUT blend with a safe algorithmic fallback."""
+    # LUTs are selected locally from style intent, then blended rather than
+    # blindly applied at 100%. This preserves skin/sky detail and makes B an
+    # adaptive creative version instead of a fixed cinematic filter.
     if lut_path and Path(lut_path).is_file():
         try:
-            from . import lut_engine
+            from . import lut_engine, style_engine
             table = lut_engine.load_cube_file(Path(lut_path))
-            graded = lut_engine.apply_lut(base, table)
-            # Apply adaptive highlight protection on top of LUT
+            transformed = lut_engine.apply_lut(base, table)
+            graded = style_engine.blend_lut(base, transformed, lut_strength)
             return _protect_highlights(graded)
         except Exception as exc:
             get_logger().warn(f"Failed to apply LUT {lut_path}, falling back to algorithmic B grade: {exc}")
@@ -347,6 +349,7 @@ def _grade_variant_with_qa(
     max_retries=2,
     threshold_pct=None,
     lut_path=None,
+    lut_strength=1.0,
 ):
     """Grade variant with automatic quality assurance feedback loop.
 
@@ -381,7 +384,11 @@ def _grade_variant_with_qa(
             # On first attempt use LUT if available; on retries fallback to softer algorithmic B
             active_lut = lut_path if attempt == 0 else None
             out = grade_variant_b(
-                crop, scene=scene, intent=current_intent if intent else None, lut_path=active_lut
+                crop,
+                scene=scene,
+                intent=current_intent if intent else None,
+                lut_path=active_lut,
+                lut_strength=lut_strength,
             )
         else:
             out = grade_variant_a(
@@ -748,17 +755,34 @@ def process_photo(cfg, src, out_root, output_stem=None):
         scene = analyze_scene(crop)
         max_qa_retries = int(cfg.get("max_qa_retries", 2))
 
-        # Match 3D LUT for Variant B
-        from . import lut_engine
-        matched_lut = lut_engine.match_lut_for_scene(scene_plan or plan)
-        if matched_lut:
-            plan["lut_b"] = matched_lut.name
+        # Vision supplies semantic facts only. The local style engine combines
+        # those facts with the account profile, scores compatible LUT candidates,
+        # and selects a controlled look strength for B.
+        from . import style_engine
+        style_intent = style_engine.build_style_intent(scene_plan or plan)
+        selected_lut = style_engine.choose_lut(style_intent)
+        matched_lut = selected_lut["path"] if selected_lut else None
+        lut_strength = selected_lut["strength"] if selected_lut else 0.0
+        plan["style_intent"] = style_intent
+        plan["style_a"] = "premium_natural"
+        plan["style_b"] = f"premium_creative:{style_intent['family']}"
+        if selected_lut:
+            plan["lut_b"] = selected_lut["name"]
+            plan["lut_strength_b"] = lut_strength
+            plan["lut_candidates"] = selected_lut["candidates"]
 
         a, qa_a, retries_a = _grade_variant_with_qa(
             "A", crop, scene=scene, intent=intent, ratio=ratio, max_retries=max_qa_retries
         )
         b, qa_b, retries_b = _grade_variant_with_qa(
-            "B", crop, scene=scene, intent=intent, ratio=ratio, max_retries=max_qa_retries, lut_path=matched_lut
+            "B",
+            crop,
+            scene=scene,
+            intent=intent,
+            ratio=ratio,
+            max_retries=max_qa_retries,
+            lut_path=matched_lut,
+            lut_strength=lut_strength,
         )
 
         if retries_a > 0 or retries_b > 0:
@@ -830,6 +854,10 @@ def _build_reel_command(
     use_gpu=False,
     template=None,
     lut_path=None,
+    lut_strength=1.0,
+    output_fps=None,
+    output_width=None,
+    output_height=None,
 ):
     """Build an Instagram/mobile-compatible ffmpeg export command."""
     # Keep paths relative to the project working directory.  The project lives
@@ -837,13 +865,24 @@ def _build_reel_command(
     # to child native processes when passed as an absolute mapped-drive path.
     src = str(Path(src))
     out = str(Path(out))
-    base = "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"
+    output_width = int(output_width or cfg.get("reel_width", 1080))
+    output_height = int(output_height or cfg.get("reel_height", 1920))
+    output_fps = int(output_fps or cfg.get("reel_output_fps", 30))
+    base = (
+        f"scale={output_width}:{output_height}:force_original_aspect_ratio=increase,"
+        f"crop={output_width}:{output_height}"
+    )
     
     # Use 3D LUT filter if Variant B has a LUT file, otherwise fallback to template/eq
     if variant == "B" and lut_path and Path(lut_path).is_file():
-        # FFmpeg lut3d filter expects forward slashes and escaped colons on Windows
+        # Video LUT application stays a single temporal FFmpeg filter.  Photo
+        # masters use pixel-accurate strength blending; for video, avoiding a
+        # second split/blend graph here prevents temporal/filter-graph errors
+        # across Best-Cut transitions. The candidate is therefore only used
+        # when the account deliberately asks for a strong creative look.
         clean_lut_path = str(Path(lut_path).resolve()).replace("\\", "/").replace(":", "\\:")
-        color_filter = f"lut3d='{clean_lut_path}'"
+        lut_strength = max(0.0, min(1.0, float(lut_strength)))
+        color_filter = f"lut3d='{clean_lut_path}'" if lut_strength >= 0.60 else "eq=contrast=1.12:saturation=1.10"
     elif template and "grading" in template:
         t_grading = template["grading"]
         contrast = float(t_grading.get("contrast", 1.2 if variant == "B" else 1.1))
@@ -877,6 +916,9 @@ def _build_reel_command(
             transition_duration=transition_duration,
             ken_burns=ken_burns,
             zoom_speed=zoom_speed,
+            output_width=output_width,
+            output_height=output_height,
+            output_fps=output_fps,
         )
         command += ["-filter_complex", filter_graph, "-map", "[outv]"]
         if include_audio:
@@ -888,22 +930,57 @@ def _build_reel_command(
         vf_chain = [base, color_filter]
         if ken_burns:
             vf_chain.insert(
-                0, f"zoompan=z='min(zoom+{zoom_speed},1.15)':d=900:s=1080x1920:fps=30"
+                0,
+                f"zoompan=z='min(zoom+{zoom_speed},1.15)':d={output_fps * int(cfg.get('reel_max_duration', 30))}:s={output_width}x{output_height}:fps={output_fps}",
             )
         command += ["-vf", ",".join(vf_chain)]
 
+    # 1080x1920 social delivery is H.264 Level 4.1. The higher-resolution
+    # working master needs Level 5.1; forcing 4.1 there makes NVENC reject it.
+    h264_level = "5.1" if output_width > 1080 or output_height > 1920 else "4.1"
     if use_gpu:
-        codec = ["-c:v", "h264_nvenc", "-preset", "p5", "-rc", "vbr", "-cq", "18", "-b:v", "0", "-profile:v", "main", "-level", "4.1"]
+        codec = ["-c:v", "h264_nvenc", "-preset", "p5", "-rc", "vbr", "-cq", "18", "-b:v", "0", "-profile:v", "main", "-level", h264_level]
     else:
-        codec = ["-c:v", "libx264", "-profile:v", "main", "-level", "4.1", "-preset", "fast", "-crf", "18"]
+        codec = ["-c:v", "libx264", "-profile:v", "main", "-level", h264_level, "-preset", "fast", "-crf", "18"]
 
     return command + [
         "-t", str(cfg.get("reel_max_duration", 30)),
-        "-r", "30",
+        "-r", str(output_fps),
         *codec,
         "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-ar", "48000", "-ac", "2", "-b:a", "192k",
         "-movflags", "+faststart", "-shortest", str(out),
+    ]
+
+
+def _build_social_derivative_command(
+    cfg,
+    master_src,
+    out,
+    include_audio=True,
+    use_gpu=False,
+    output_fps=30,
+):
+    """Derive the Instagram delivery file from a single rendered master.
+
+    This is deliberately a separate pass: colour, crop, cuts and transitions
+    are baked exactly once in the master.  The final 1080x1920 file only
+    resizes/re-encodes that master for Instagram compatibility.
+    """
+    master_src, out = str(Path(master_src)), str(Path(out))
+    scale = "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"
+    command = ["ffmpeg", "-y", "-i", master_src, "-map", "0:v:0", "-vf", scale]
+    if include_audio:
+        command += ["-map", "0:a:0?"]
+    codec = (
+        ["-c:v", "h264_nvenc", "-preset", "p5", "-rc", "vbr", "-cq", "18", "-b:v", "0"]
+        if use_gpu
+        else ["-c:v", "libx264", "-preset", "fast", "-crf", "18"]
+    )
+    return command + [
+        "-r", str(int(output_fps)), *codec,
+        "-pix_fmt", "yuv420p", "-c:a", "aac", "-ar", "48000", "-ac", "2", "-b:a", "192k",
+        "-movflags", "+faststart", "-shortest", out,
     ]
 
 
@@ -920,8 +997,11 @@ def _save_reel_manifest(
     selected_segments,
     provider,
     outputs,
+    masters=None,
     template=None,
     lut_name=None,
+    source_info=None,
+    fps_plan=None,
 ):
     """Save the editing decision next to the other machine-readable manifests."""
     manifest_dir = Path(manifest_dir)
@@ -936,7 +1016,10 @@ def _save_reel_manifest(
         "editing_provider": provider,
         "template": template.get("name") if template else "Default A/B",
         "lut_b": lut_name,
+        "source_technical": source_info or {},
+        "fps_plan": fps_plan or {},
         "grading_variants": ["A", "B"],
+        "masters": {key: str(value) for key, value in (masters or {}).items()},
         "outputs": {key: str(value) for key, value in outputs.items()},
     }
     out_path = manifest_dir / f"{stem}_REELS_manifest.json"
@@ -969,6 +1052,8 @@ def process_reel(cfg, src, out_root, output_stem=None):
         frame_quality_score,
         has_audio_stream,
         probe_duration,
+        probe_video_info,
+        plan_social_fps,
         select_best_segments,
     )
 
@@ -978,10 +1063,12 @@ def process_reel(cfg, src, out_root, output_stem=None):
     out_dir.mkdir(parents=True, exist_ok=True)
     stem = output_stem or Path(src).stem
 
-    # Scene detection. For short videos, preserve the complete recording; for
-    # longer videos, select the best moments after the representative frame
-    # has established the scene context.
-    duration = probe_duration(str(src)) or 0.0
+    # Source technical analysis happens before editing: preserve normal source
+    # cadence (24/25/30 fps), while 50/60 fps is explicitly marked as a future
+    # slow-motion candidate and delivered at social-safe 30 fps by default.
+    source_info = probe_video_info(str(src))
+    fps_plan = plan_social_fps(source_info)
+    duration = source_info["duration"] or probe_duration(str(src)) or 0.0
     segs = detect_scenes(str(src), max_segments=cfg.get("best_clips_max_segments", 15))
     selected_segments = None
 
@@ -1057,42 +1144,75 @@ def process_reel(cfg, src, out_root, output_stem=None):
 
     logger.info(f"[Reel] {plan.get('scene_type')} | processing...")
 
-    # Template & LUT selection based on scene analysis or default
-    from . import templates, lut_engine
+    # Vision describes the scene; local account style chooses compatible LUTs.
+    from . import templates, style_engine
     template = templates.select_template_for_scene(scene_plan or plan)
-    matched_lut = lut_engine.match_lut_for_scene(scene_plan or plan)
+    style_intent = style_engine.build_style_intent(scene_plan or plan)
+    selected_lut = style_engine.choose_lut(style_intent)
+    matched_lut = selected_lut["path"] if selected_lut else None
+    lut_strength = selected_lut["strength"] if selected_lut else 0.0
     lut_name = matched_lut.name if matched_lut else "None"
-    logger.info(f"[Reel] Applied Template: {template.get('name')} | LUT (B): {lut_name}")
+    plan["style_intent"] = style_intent
+    if selected_lut:
+        plan["lut_candidates"] = selected_lut["candidates"]
+    logger.info(f"[Reel] Applied Template: {template.get('name')} | LUT (B): {lut_name} @ {lut_strength:.2f}")
 
     # Constant per source — probe once, reuse for both variants.
     has_audio = has_audio_stream(str(src))
     use_gpu = _nvenc_available()
 
-    # Video export (same as original)
+    # Master-first video delivery: the creative edit is rendered once at a
+    # higher working resolution. Instagram output is then a simple derivative
+    # from that master, so color/crop/transitions are never recomputed.
+    masters_dir = Path(
+        cfg.get("masters_folder")
+        or (Path(cfg.get("output_folder", out_root)).parent / "3_ARCHIV" / "MASTERS")
+    ) / "REELS"
+    masters_dir.mkdir(parents=True, exist_ok=True)
+    reel_outputs = {}
+    reel_masters = {}
     for variant in ("A", "B"):
-        out = out_dir / f"{stem}_{variant}.mp4"
-        part = _reel_part_path(out)
-        part.unlink(missing_ok=True)
-        cmd = _build_reel_command(
+        master = masters_dir / f"{stem}_REEL_{variant}_master.mp4"
+        master_part = _reel_part_path(master)
+        master_part.unlink(missing_ok=True)
+        master_cmd = _build_reel_command(
             cfg,
             src,
-            part,
+            master_part,
             variant,
             selected_segments=selected_segments,
             include_audio=has_audio,
             use_gpu=use_gpu,
             template=template,
             lut_path=matched_lut if variant == "B" else None,
+            lut_strength=lut_strength,
+            output_fps=fps_plan["output_fps"],
+            output_width=int(cfg.get("reel_master_width", 1440)),
+            output_height=int(cfg.get("reel_master_height", 2560)),
         )
-
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        r = subprocess.run(master_cmd, capture_output=True, text=True, timeout=600)
         if r.returncode != 0:
-            logger.error(f"Reel {variant} failed", error=Exception(r.stderr[-200:]))
+            logger.error(f"Reel master {variant} failed", error=Exception(r.stderr[-200:]))
+            master_part.unlink(missing_ok=True)
+            raise RuntimeError(f"Reel master {variant} export failed for {src.name}")
+        master_part.replace(master)
+        reel_masters[variant] = master
+
+        out = out_dir / f"{stem}_{variant}.mp4"
+        part = _reel_part_path(out)
+        part.unlink(missing_ok=True)
+        delivery_cmd = _build_social_derivative_command(
+            cfg, master, part, include_audio=has_audio, use_gpu=use_gpu,
+            output_fps=fps_plan["output_fps"],
+        )
+        r = subprocess.run(delivery_cmd, capture_output=True, text=True, timeout=600)
+        if r.returncode != 0:
+            logger.error(f"Reel delivery {variant} failed", error=Exception(r.stderr[-200:]))
             part.unlink(missing_ok=True)
-            raise RuntimeError(f"Reel {variant} export failed for {src.name}")
-        else:
-            part.replace(out)
-            logger.info(f"[{variant}] -> {out.name}")
+            raise RuntimeError(f"Reel delivery {variant} export failed for {src.name}")
+        part.replace(out)
+        reel_outputs[variant] = out
+        logger.info(f"[{variant}] Master -> {master.name}; Instagram -> {out.name}")
 
     manifest_dir = cfg.get(
         "manifests_folder", out_root.parent / "_SYSTEM" / "manifests"
@@ -1104,11 +1224,14 @@ def process_reel(cfg, src, out_root, output_stem=None):
         selected_segments=selected_segments or [],
         provider="best_cut" if selected_segments else "full_video",
         outputs={
-            variant: out_dir / f"{stem}_{variant}.mp4"
+            variant: reel_outputs[variant]
             for variant in ("A", "B")
         },
+        masters={variant: str(reel_masters[variant]) for variant in ("A", "B")},
         template=template,
         lut_name=lut_name if matched_lut else None,
+        source_info=source_info,
+        fps_plan=fps_plan,
     )
 
     # Save ready-to-copy caption alongside Reels

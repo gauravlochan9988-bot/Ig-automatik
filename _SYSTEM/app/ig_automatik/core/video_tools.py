@@ -1,5 +1,6 @@
 """Video utility functions for scene detection and frame extraction."""
 
+import json
 import os
 import re
 import subprocess
@@ -9,17 +10,74 @@ from pathlib import Path
 import cv2
 
 
-def probe_duration(path):
-    """Get video duration in seconds."""
+def _parse_fps(value):
+    """Turn ffprobe's rational frame rate (e.g. 60000/1001) into a float."""
+    try:
+        text = str(value or "0")
+        if "/" in text:
+            numerator, denominator = text.split("/", 1)
+            denominator = float(denominator)
+            return float(numerator) / denominator if denominator else 0.0
+        return float(text)
+    except (TypeError, ValueError, ZeroDivisionError):
+        return 0.0
+
+
+def probe_video_info(path):
+    """Read source duration, FPS, geometry, codecs and audio in one ffprobe call."""
+    fallback = {
+        "duration": 0.0, "fps": 0.0, "width": 0, "height": 0,
+        "video_codec": None, "audio_codec": None, "has_audio": False,
+    }
     try:
         r = subprocess.run(
-            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
-             "-of", "default=noprint_wrappers=1:nokey=1", str(path)],
-            capture_output=True, text=True, timeout=60
+            [
+                "ffprobe", "-v", "error", "-show_entries",
+                "format=duration:stream=codec_type,codec_name,width,height,avg_frame_rate,r_frame_rate",
+                "-of", "json", str(path),
+            ],
+            capture_output=True, text=True, timeout=60,
         )
-        return float(r.stdout.strip())
-    except Exception:
-        return None
+        if r.returncode != 0:
+            return fallback
+        data = json.loads(r.stdout)
+        streams = data.get("streams") or []
+        video = next((s for s in streams if s.get("codec_type") == "video"), {})
+        audio = next((s for s in streams if s.get("codec_type") == "audio"), None)
+        fps = _parse_fps(video.get("avg_frame_rate")) or _parse_fps(video.get("r_frame_rate"))
+        return {
+            "duration": float((data.get("format") or {}).get("duration") or 0.0),
+            "fps": round(fps, 3),
+            "width": int(video.get("width") or 0),
+            "height": int(video.get("height") or 0),
+            "video_codec": video.get("codec_name"),
+            "audio_codec": audio.get("codec_name") if audio else None,
+            "has_audio": audio is not None,
+        }
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return fallback
+
+
+def plan_social_fps(video_info):
+    """Choose output FPS deliberately; preserve normal source cadence.
+
+    24/25/30 fps remain unchanged. 50/60 fps is normalized to 30 for regular
+    Reel delivery but is marked as a slow-motion candidate for a future edit
+    plan, rather than silently pretending its source cadence never existed.
+    """
+    fps = float((video_info or {}).get("fps") or 0.0)
+    if fps <= 0:
+        return {"source_fps": 0.0, "output_fps": 30, "slow_motion_candidate": False}
+    if fps >= 45:
+        return {"source_fps": fps, "output_fps": 30, "slow_motion_candidate": True}
+    standard = min((24, 25, 30), key=lambda target: abs(fps - target))
+    return {"source_fps": fps, "output_fps": standard, "slow_motion_candidate": False}
+
+
+def probe_duration(path):
+    """Get video duration in seconds."""
+    duration = probe_video_info(path).get("duration", 0.0)
+    return duration if duration > 0 else None
 
 
 def has_audio_stream(path):
@@ -173,6 +231,9 @@ def build_segment_filter(
     transition_duration=0.5,
     ken_burns=False,
     zoom_speed="0.0015",
+    output_width=1080,
+    output_height=1920,
+    output_fps=30,
 ):
     """Build an ffmpeg filter graph that trims, animates, transitions, and concatenates clips."""
     parts = []
@@ -196,7 +257,7 @@ def build_segment_filter(
         if ken_burns:
             # Dynamic slow push-in zoompan
             v_chain.append(
-                f"zoompan=z='min(zoom+{zoom_speed},1.15)':d={max(1, int(duration * 30))}:s=1080x1920:fps=30"
+                f"zoompan=z='min(zoom+{zoom_speed},1.15)':d={max(1, int(duration * output_fps))}:s={int(output_width)}x{int(output_height)}:fps={int(output_fps)}"
             )
             
         v_chain.append(video_filter)

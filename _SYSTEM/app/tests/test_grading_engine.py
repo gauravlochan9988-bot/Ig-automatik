@@ -420,10 +420,11 @@ class GradingEngineTests(unittest.TestCase):
             "usage": {"total_tokens": 150}
         }
         
-        with patch.object(engine.vision, "is_enabled", return_value=True), \
+        with patch.object(engine.vision.Config, "load_env", return_value={"OPENROUTER_API_KEY": "test-key"}), \
              patch("urllib.request.urlopen") as mock_url:
             mock_resp = mock_url.return_value.__enter__.return_value
             mock_resp.read.return_value = json.dumps(body).encode("utf-8")
+            mock_resp.__enter__.return_value = mock_resp
             
             with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
                 f_path = Path(f.name)
@@ -664,6 +665,34 @@ class GradingEngineTests(unittest.TestCase):
 
             with Image.open(output) as exported:
                 self.assertEqual(exported.width, 1080)
+
+    def test_variant_creates_full_resolution_16bit_master_before_ig_derivative(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_dir = root / "2_FERTIG" / "POSTS"
+            output_dir.mkdir(parents=True)
+            masters_dir = root / "3_ARCHIV" / "MASTERS"
+            cfg = {
+                "export_quality": 95,
+                "output_width_post": 1080,
+                "produce_ig": True,
+                "produce_masters": True,
+                "masters_folder": str(masters_dir),
+            }
+            manager = engine.ExportManager(cfg)
+            rgb = np.full((1500, 2000, 3), 0.42, dtype=np.float32)
+            files = manager.save_variant(
+                rgb, output_dir, "beach", "B", output_width=1080, format_name="POSTS"
+            )
+
+            self.assertIn("master", files)
+            master = cv2.imread(str(files["master"]), cv2.IMREAD_UNCHANGED)
+            ig = cv2.imread(str(files["ig"]), cv2.IMREAD_UNCHANGED)
+            self.assertEqual(master.shape[:2], (1500, 2000))
+            self.assertEqual(master.dtype, np.uint16)
+            self.assertEqual(ig.shape[1], 1080)
+            self.assertTrue(files["master"].name.endswith("_POSTS_B_master.png"))
+            self.assertTrue(files["master"].is_relative_to(masters_dir))
 
     def test_uint16_images_are_scaled_to_unit_range(self):
         with tempfile.TemporaryDirectory() as tmp:

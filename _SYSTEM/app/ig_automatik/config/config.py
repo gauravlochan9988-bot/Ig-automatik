@@ -27,10 +27,13 @@ class Config:
         "ratio_post": "4/5",
         "ratio_story": "9/16",
         "produce_archives": True,
+        "produce_masters": True,
         "produce_ig": True,
         "produce_formats": ["POSTS", "STORIES"],
         "reel_max_duration": 30,
         "reel_max_clip_duration": 8,
+        "reel_master_width": 1440,
+        "reel_master_height": 2560,
         "cost_limit_per_batch": 1.0,
         "max_qa_retries": 2,
         "safe_edit_only": True,
@@ -65,6 +68,7 @@ class Config:
         cls._resolve_folder(cfg, "input_folder", PROJECT_ROOT / "1_EINGANG")
         cls._resolve_folder(cfg, "output_folder", PROJECT_ROOT / "2_FERTIG")
         cls._resolve_folder(cfg, "processed_folder", PROJECT_ROOT / "3_ARCHIV")
+        cls._resolve_folder(cfg, "masters_folder", PROJECT_ROOT / "3_ARCHIV" / "MASTERS")
         cls._resolve_folder(cfg, "manifests_folder", SYSTEM_DIR / "manifests")
 
         # Drop keys from older versions that pointed at folders the pipeline
@@ -120,7 +124,7 @@ class Config:
 
         # Validate booleans. A hand-edited config can hold the string "false"
         # or "0"; bool("false") would be True, so parse string forms explicitly.
-        for key in ["produce_archives", "produce_ig", "safe_edit_only", "auto_move_sources"]:
+        for key in ["produce_archives", "produce_masters", "produce_ig", "safe_edit_only", "auto_move_sources"]:
             cfg[key] = cls._as_bool(cfg.get(key, cls.DEFAULTS.get(key, True)))
 
         # Validate reel settings

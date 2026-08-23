@@ -51,15 +51,33 @@ class ExportManager:
             self.logger.error("Failed to save JPG", error=e, filename=filename)
             return None
 
-    def save_png_archive(self, rgb8: np.ndarray, out_dir: Path, filename: str) -> Optional[Path]:
-        """Save PNG for archive (full resolution)."""
+    def save_master_png(
+        self,
+        rgb_float: np.ndarray,
+        stem: str,
+        variant: str,
+        format_name: str,
+    ) -> Optional[Path]:
+        """Save a full-resolution, 16-bit lossless master before any IG resize.
+
+        The master is a derived edit, never a replacement for the untouched
+        source.  It preserves the post-crop working resolution, whereas the
+        social JPG is only a final delivery derivative.
+        """
         try:
-            out_path = out_dir / f"{filename}_archiv.png"
-            bgr = cv2.cvtColor(rgb8, cv2.COLOR_RGB2BGR)
-            cv2.imwrite(str(out_path), bgr)
+            masters_dir = Path(
+                self.cfg.get("masters_folder")
+                or Path(self.cfg.get("processed_folder", "3_ARCHIV")) / "MASTERS"
+            )
+            masters_dir.mkdir(parents=True, exist_ok=True)
+            master16 = np.clip(rgb_float * 65535.0, 0, 65535).astype(np.uint16)
+            out_path = masters_dir / f"{stem}_{format_name}_{variant}_master.png"
+            bgr16 = cv2.cvtColor(master16, cv2.COLOR_RGB2BGR)
+            if not cv2.imwrite(str(out_path), bgr16):
+                return None
             return out_path
         except Exception as e:
-            self.logger.error("Failed to save PNG archive", error=e, filename=filename)
+            self.logger.error("Failed to save lossless master", error=e, stem=stem)
             return None
 
     def save_variant(
@@ -69,22 +87,24 @@ class ExportManager:
         stem: str,
         variant: str,
         output_width: Optional[int] = None,
+        format_name: Optional[str] = None,
     ) -> Dict[str, Path]:
-        """Export one grading variant (jpg ig + png archive if enabled)."""
-        rgb8 = np.clip(rgb_float * 255, 0, 255).astype(np.uint8)
+        """Export one variant: full-resolution master first, then social JPG."""
         out_files = {}
+        format_name = format_name or Path(out_dir).name
+
+        if self.cfg.get("produce_masters", True):
+            master_path = self.save_master_png(rgb_float, stem, variant, format_name)
+            if master_path:
+                out_files["master"] = master_path
 
         if self.cfg.get("produce_ig", True):
+            rgb8 = np.clip(rgb_float * 255, 0, 255).astype(np.uint8)
             jpg_path = self.save_jpg_ig(
                 rgb8, out_dir, f"{stem}_{variant}", output_width=output_width
             )
             if jpg_path:
                 out_files["ig"] = jpg_path
-
-        if self.cfg.get("produce_archives", True):
-            png_path = self.save_png_archive(rgb8, out_dir, f"{stem}_{variant}")
-            if png_path:
-                out_files["archive"] = png_path
 
         return out_files
 

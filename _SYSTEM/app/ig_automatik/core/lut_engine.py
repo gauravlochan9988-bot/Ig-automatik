@@ -111,7 +111,10 @@ def apply_lut(rgb_float: np.ndarray, table: np.ndarray) -> np.ndarray:
 
 def get_luts_directory() -> Path:
     """Return the central LUTs directory path (_SYSTEM/luts)."""
-    root = find_project_root(Path(__file__))
+    # This module lives in _SYSTEM/app/ig_automatik/core/. Start discovery at
+    # _SYSTEM itself so fresh/nested layouts resolve to the visible project root
+    # rather than accidentally creating _SYSTEM/app/_SYSTEM/luts.
+    root = find_project_root(Path(__file__).resolve().parents[3])
     lut_dir = system_dir(root) / LUT_DIR_NAME
     lut_dir.mkdir(parents=True, exist_ok=True)
     return lut_dir
