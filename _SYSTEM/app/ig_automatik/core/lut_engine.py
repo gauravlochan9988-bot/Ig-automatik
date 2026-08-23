@@ -136,20 +136,35 @@ def match_lut_for_scene(scene_plan: Optional[Dict[str, Any]] = None) -> Optional
     main_subject = str(scene_plan.get("main_subject", "")).lower()
     text = f"{scene_type} {main_subject}".lower()
 
-    # Match rules:
-    # 1. Fashion/Portrait/Person -> Colorify Fashion
-    # 2. Night/Cinematic/Dark -> True Cinematic
-    # 3. Punch/Vibrant/Summer/Beach -> Universal Punch
+    # Match rules prioritizing high quality sRGB / standard profiles:
+    # 1. Beach/Sunset/Florida/Vacation -> Velvia (punchy colors) or Universal Punch
+    # 2. Fashion/Portrait/Skin/Wedding -> Classic Chrome / Pro Neg / Colorify Fashion
+    # 3. Cinematic/Film/Street -> Classic Neg / True Cinematic
+    # 4. Night/Party/Moody -> Eterna / Bleach Bypass / D-Cinelike Blockbuster
+    # 5. Monochrome/B&W -> MonoPhotoRedux
+    
     for p in available:
         name = p.stem.lower()
-        if any(w in text for w in ("fashion", "portrait", "woman", "person", "model", "wedding", "style")) and "fashion" in name:
-            return p
-        if any(w in text for w in ("night", "party", "club", "dark", "street", "cinematic", "film")) and "cinematic" in name:
-            return p
-        if any(w in text for w in ("sunset", "sun", "beach", "summer", "punch", "pool", "vibrant", "landscape")) and "punch" in name:
-            return p
+        if any(w in text for w in ("sunset", "beach", "summer", "florida", "ocean", "pool", "sun")):
+            if "velvia_srgb" in name or "punch" in name:
+                return p
+        if any(w in text for w in ("fashion", "portrait", "woman", "person", "wedding", "model", "face")):
+            if "classic chrome_srgb" in name or "pro neg hi_srgb" in name or "fashion" in name:
+                return p
+        if any(w in text for w in ("travel", "street", "city", "architecture", "landscape")):
+            if "classic neg_srgb" in name or "nostalgic neg_srgb" in name or "cinematic" in name:
+                return p
+        if any(w in text for w in ("night", "party", "club", "dark", "concert")):
+            if "eterna_srgb" in name or "bleach bypass_srgb" in name or "blockbuster" in name or "cinelike" in name:
+                return p
+        if any(w in text for w in ("bw", "black and white", "monochrome", "vintage")):
+            if "monophotoredux" in name or "sepia" in name:
+                return p
 
-    # Fallback default: True Cinematic or first available
+    # Fallback to high quality sRGB Classic Chrome or True Cinematic
+    for p in available:
+        if "classic chrome_srgb" in p.stem.lower():
+            return p
     for p in available:
         if "cinematic" in p.stem.lower():
             return p
