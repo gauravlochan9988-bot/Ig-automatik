@@ -49,6 +49,10 @@ select { appearance:none; border:1px solid #35415a; border-radius:10px; backgrou
 .master-missing { margin-top:8px; padding:8px 5px; border-radius:10px; color:#fcd34d; background:#3b2f12; text-align:center; font-size:10px; }
 .progress { height:4px; background:#273147; border-radius:4px; margin-top:16px; overflow:hidden; }.progress span { display:block; width:45%; height:100%; background:#6366f1; animation:slide 1.5s infinite ease-in-out; }
 .status-note { margin-top:14px; padding:10px; border-radius:10px; color:#fcd34d; background:#3b2f12; font-size:11px; line-height:1.35; }
+.job-actions { display:flex; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid #273147; }
+.job-actions button { flex:1; min-width:0; padding:9px 6px; font-size:11px; line-height:1.25; }
+.reprocess { background:#115e59; color:#ecfeff; border:1px solid #2dd4bf; }
+.history-remove { background:#293449; color:#dbe3f2; border:1px solid #35415a; }
 @keyframes slide { from { transform:translateX(-100%); } to { transform:translateX(240%); } }
 .empty { padding:28px 10px; color:#818da3; text-align:center; border:1px dashed #273147; border-radius:16px; }.error { color:#fca5a5; }
 .history-actions { text-align:center; min-height:32px; padding-top:12px; }.history-note { color:#818da3; font-size:12px; }

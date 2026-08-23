@@ -13,6 +13,7 @@ import json
 import mimetypes
 import os
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -93,6 +94,40 @@ class MobileBridge:
     def delete_job(self, job_id: str) -> None:
         """Remove a job record when its upload did not complete."""
         self._job_path(job_id).unlink(missing_ok=True)
+
+    def reprocess_source(self, job: dict) -> Path | None:
+        """Find an untouched source that can be queued under a new job id."""
+        candidates = (
+            self.input_dir / job["source_name"],
+            self.project_root / "3_ARCHIV" / job["source_name"],
+        )
+        return next(
+            (path for path in candidates if path.is_file() and path.stat().st_size > 0),
+            None,
+        )
+
+    def reprocess_job(self, job_id: str) -> dict:
+        """Queue a new copy of a source without changing the original job."""
+        original = self.get_job(job_id)
+        source = self.reprocess_source(original)
+        if source is None:
+            raise FileNotFoundError("Originaldatei für erneute Verarbeitung nicht gefunden.")
+        if source.stat().st_size > MAX_UPLOAD_BYTES:
+            raise ValueError("Die Datei ist größer als 4 GB.")
+
+        new_job = self.create_job(original["original_name"])
+        self.input_dir.mkdir(parents=True, exist_ok=True)
+        temporary = self.input_dir / f".igmobile-{new_job['id']}.uploading"
+        destination = self.input_dir / new_job["source_name"]
+        try:
+            with source.open("rb") as source_stream, temporary.open("wb") as output:
+                shutil.copyfileobj(source_stream, output, length=1024 * 1024)
+            temporary.replace(destination)
+        except Exception:
+            temporary.unlink(missing_ok=True)
+            self.delete_job(new_job["id"])
+            raise
+        return new_job
 
     def save_upload(self, job: dict, source_stream, content_length: int | None) -> None:
         if content_length is not None and content_length < 0:
@@ -213,11 +248,13 @@ class MobileBridge:
             status = "missing_outputs"
         else:
             status = "not_received"
+        reprocess_available = self.reprocess_source(job) is not None
         return {
             **job,
             "status": status,
             "outputs": outputs,
             "manifest_available": bool(manifests),
+            "reprocess_available": reprocess_available,
         }
 
     def list_jobs(self) -> list[dict]:
@@ -318,6 +355,21 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
+        if parsed.path.startswith("/api/jobs/") and parsed.path.endswith("/reprocess"):
+            parts = parsed.path.split("/")
+            if len(parts) != 5:
+                self.send_json({"error": "Nicht gefunden."}, HTTPStatus.NOT_FOUND)
+                return
+            try:
+                job = self.bridge.reprocess_job(parts[3])
+                self.send_json({"job": self.bridge.snapshot(job)}, HTTPStatus.CREATED)
+            except FileNotFoundError as exc:
+                self.send_json({"error": str(exc)}, HTTPStatus.NOT_FOUND)
+            except ValueError as exc:
+                self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            except Exception as exc:
+                self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
         if parsed.path != "/api/upload":
             self.send_json({"error": "Nicht gefunden."}, HTTPStatus.NOT_FOUND)
             return
@@ -337,6 +389,25 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"job": self.bridge.snapshot(job)}, HTTPStatus.CREATED)
         except ValueError as exc:
             self.send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+        except Exception as exc:
+            self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+
+    def do_DELETE(self):
+        parsed = urlparse(self.path)
+        if not parsed.path.startswith("/api/jobs/"):
+            self.send_json({"error": "Nicht gefunden."}, HTTPStatus.NOT_FOUND)
+            return
+        parts = parsed.path.split("/")
+        if len(parts) != 4:
+            self.send_json({"error": "Nicht gefunden."}, HTTPStatus.NOT_FOUND)
+            return
+        try:
+            # This removes only the mobile history JSON. It never touches an
+            # input, output, archive, master, or manifest file.
+            self.bridge.delete_job(parts[3])
+            self.send_json({"ok": True})
+        except FileNotFoundError:
+            self.send_json({"error": "Nicht gefunden."}, HTTPStatus.NOT_FOUND)
         except Exception as exc:
             self.send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
 

@@ -168,16 +168,56 @@ function renderJobs(items) {
       missing_outputs: 'Manifest vorhanden, aber die fertigen Dateien fehlen.',
       not_received: 'Kein Original und kein Abschluss-Manifest gefunden.',
     }[job.status];
+    const historyButtons = `
+      <div class="job-actions">
+        ${job.reprocess_available ? `<button class="reprocess" data-job-id="${escapeHtml(job.id)}">Erneut verarbeiten</button>` : ''}
+        <button class="history-remove" data-job-id="${escapeHtml(job.id)}">Eintrag entfernen</button>
+      </div>`;
     const pendingView = job.status === 'processing'
       ? '<div class="progress"><span></span></div>'
       : statusNote ? `<div class="status-note">${statusNote}</div>` : '';
     return `<article class="job">
     <div class="job-top"><div><strong>${escapeHtml(job.original_name)}</strong><small>${formatDate(job.created)}</small></div><span class="status ${job.status}">${statusText}</span></div>
       ${outputGroups || pendingView}
+      ${historyButtons}
     </article>`;
   }).join('');
   bindShareButtons();
+  bindHistoryButtons();
   historyActions.innerHTML = `<small class="history-note">${totalFiltered} ${totalFiltered === 1 ? 'Ergebnis' : 'Ergebnisse'} angezeigt</small>`;
+}
+
+function bindHistoryButtons() {
+  document.querySelectorAll('.history-remove').forEach(button => {
+    button.addEventListener('click', async () => {
+      if (!confirm('Nur diesen Eintrag aus der App-Historie entfernen? Pipeline-Dateien bleiben erhalten.')) return;
+      button.disabled = true;
+      try {
+        const response = await fetch(`/api/jobs/${encodeURIComponent(button.dataset.jobId)}`, { method: 'DELETE' });
+        if (!response.ok) throw new Error(readError(await response.text()));
+        await loadJobs(true);
+      } catch (error) {
+        button.disabled = false;
+        alert(error.message || 'Eintrag konnte nicht entfernt werden.');
+      }
+    });
+  });
+  document.querySelectorAll('.reprocess').forEach(button => {
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      const originalText = button.textContent;
+      button.textContent = 'Wird vorbereitet …';
+      try {
+        const response = await fetch(`/api/jobs/${encodeURIComponent(button.dataset.jobId)}/reprocess`, { method: 'POST' });
+        if (!response.ok) throw new Error(readError(await response.text()));
+        await loadJobs(true);
+      } catch (error) {
+        button.disabled = false;
+        button.textContent = originalText;
+        alert(error.message || 'Erneute Verarbeitung konnte nicht gestartet werden.');
+      }
+    });
+  });
 }
 
 function variantCard(file) {
