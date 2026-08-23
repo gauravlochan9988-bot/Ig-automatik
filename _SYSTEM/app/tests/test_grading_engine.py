@@ -443,26 +443,7 @@ class GradingEngineTests(unittest.TestCase):
         self.assertIn("acrossfade=d=0.5", filter_graph)
         self.assertIn("zoompan", filter_graph)
 
-    def test_caption_file_generation_and_format(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            out_dir = root / "output" / "POSTS"
-            out_dir.mkdir(parents=True)
-            
-            caption_data = {
-                "hook": "Sunset magic in Florida ✨",
-                "caption": "Golden hour never looked better. Feeling the warm breeze and soaking in every moment.",
-                "hashtags": ["#MiamiVibes", "#FloridaSunset", "#GoldenHour", "#TravelReels", "#Wanderlust"]
-            }
-            
-            caption_path = engine._save_caption_file(out_dir, "my_photo", caption_data)
-            self.assertTrue(caption_path.exists())
-            text = caption_path.read_text(encoding="utf-8")
-            self.assertIn("Sunset magic in Florida ✨", text)
-            self.assertIn("#MiamiVibes", text)
-            self.assertIn("#GoldenHour", text)
-
-    def test_vision_payload_parses_instagram_captions(self):
+    def test_vision_payload_ignores_legacy_instagram_captions(self):
         body = {
             "choices": [{
                 "message": {
@@ -508,9 +489,7 @@ class GradingEngineTests(unittest.TestCase):
             try:
                 res = engine.vision.analyze(f_path)
                 self.assertIsNotNone(res)
-                self.assertIn("instagram", res)
-                self.assertEqual(res["instagram"]["hook"], "Chasing sunsets in Miami 🌅")
-                self.assertEqual(res["instagram"]["hashtags"], ["#MiamiLife", "#SunsetLovers", "#VacationMode"])
+                self.assertNotIn("instagram", res)
                 self.assertEqual(res["creative_direction"]["light_mood"], "golden_hour")
                 self.assertEqual(res["creative_direction"]["preserve"], ["face", "skin tones", "sunset sky", "ocean"])
                 self.assertAlmostEqual(

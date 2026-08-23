@@ -591,38 +591,6 @@ def _grade_variant_with_qa(
     return best_out, best_qa, retries_used
 
 
-def _save_caption_file(out_dir: Path, stem: str, caption_data: Dict[str, Any]) -> Optional[Path]:
-    """Save an easy-to-copy Instagram caption and hashtag text file."""
-    if not caption_data:
-        return None
-    try:
-        out_dir = Path(out_dir)
-        out_dir.mkdir(parents=True, exist_ok=True)
-        hook = str(caption_data.get("hook", "")).strip()
-        caption = str(caption_data.get("caption", "")).strip()
-        tags = caption_data.get("hashtags", [])
-        tag_str = " ".join(tags) if isinstance(tags, list) else str(tags)
-
-        lines = []
-        if hook:
-            lines.append(hook)
-            lines.append("")
-        if caption:
-            lines.append(caption)
-            lines.append("")
-        if tag_str:
-            lines.append(".")
-            lines.append(".")
-            lines.append(tag_str)
-
-        content = "\n".join(lines).strip() + "\n"
-        caption_path = out_dir / f"{stem}_caption.txt"
-        caption_path.write_text(content, encoding="utf-8")
-        return caption_path
-    except Exception:
-        return None
-
-
 # ============================================================================
 # Cropping & QA
 # ============================================================================
@@ -1522,11 +1490,6 @@ def process_photo(cfg, src, out_root, output_stem=None):
         qa = {"A": qa_a, "B": qa_b}
         m = export_mgr.save_manifest(out_dir, stem, plan, files, qa)
 
-        # Save Instagram caption & hashtags text file alongside the media
-        caption_info = plan.get("instagram") or (scene_plan.get("instagram") if scene_plan else None)
-        if caption_info:
-            _save_caption_file(out_dir, stem, caption_info)
-
         logger.info(f"[{fmt}] A/B exported | provider={plan.get('provider')}")
         results.append({
             "fmt": fmt,
@@ -2106,11 +2069,6 @@ def process_reel(cfg, src, out_root, output_stem=None):
         fps_plan=fps_plan,
         qa=reel_qa,
     )
-
-    # Save ready-to-copy caption alongside Reels
-    caption_info = plan.get("instagram") or (scene_plan.get("instagram") if scene_plan else None)
-    if caption_info:
-        _save_caption_file(out_dir, stem, caption_info)
 
     logger.info("Reels complete (A/B variants)")
 
