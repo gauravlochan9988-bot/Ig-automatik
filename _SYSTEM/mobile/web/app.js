@@ -321,3 +321,20 @@ function escapeHtml(value) {
 
 loadJobs();
 setInterval(loadJobs, 3000);
+
+// iOS may suspend timers while the Home-Screen app is in the background. A
+// fresh request when the app becomes visible prevents a stale "Wartet auf
+// Verarbeitung" status after the main pipeline has already finished.
+let lastResumeRefresh = 0;
+function refreshOnResume() {
+  const now = Date.now();
+  if (now - lastResumeRefresh < 1000) return;
+  lastResumeRefresh = now;
+  loadJobs(true);
+}
+
+window.addEventListener('pageshow', refreshOnResume);
+window.addEventListener('focus', refreshOnResume);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') refreshOnResume();
+});
