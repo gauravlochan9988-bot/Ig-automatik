@@ -177,10 +177,10 @@ function variantCard(file) {
     <div class="variant-heading"><strong>Variante ${file.variant}</strong><span>${file.variant === 'A' ? 'Natural' : 'Cinematic'}</span></div>
     ${preview}
     <div class="card-actions">
-      <button class="share" data-url="${file.url}" data-name="${escapeHtml(file.name)}">In Fotos sichern</button>
-      <a class="download ${file.variant === 'B' ? 'accent' : ''}" data-download="true" data-preview="${file.preview_url}" data-url="${file.url}" data-name="${escapeHtml(file.name)}" data-video="${video}" href="${file.url}">Herunterladen</a>
+      <button class="share" data-url="${file.url}" data-name="${escapeHtml(file.name)}" data-video="${video}">In Fotos sichern</button>
+      <a class="download ${file.variant === 'B' ? 'accent' : ''}" data-download="true" data-preview="${file.preview_url}" data-url="${file.url}" data-name="${escapeHtml(file.name)}" data-video="${video}" href="${file.url}">Sichern / teilen</a>
     </div>
-    ${file.master_url ? `<div class="master-actions"><button class="share master-share" data-url="${file.master_url}" data-name="${escapeHtml(file.master_name)}">Vollqualität sichern</button></div>` : `<div class="master-missing">Vollqualität derzeit nicht im Archiv gefunden</div>`}
+    ${file.master_url ? `<div class="master-actions"><button class="share master-share" data-url="${file.master_url}" data-name="${escapeHtml(file.master_name)}" data-video="${video}">Vollqualität sichern</button></div>` : `<div class="master-missing">Vollqualität derzeit nicht im Archiv gefunden</div>`}
   </div>`;
 }
 
@@ -188,7 +188,7 @@ function formatLabel(format) {
   return { POSTS: 'Instagram-Post · 4:5', STORIES: 'Story · 9:16', REELS: 'Reel · 9:16' }[format] || format;
 }
 
-async function shareOutput(url, filename) {
+async function shareOutput(url, filename, video = false) {
   try {
     const response = await fetch(url);
     if (!response.ok) throw new Error('Datei konnte nicht geladen werden.');
@@ -198,7 +198,7 @@ async function shareOutput(url, filename) {
       await navigator.share({ title: 'IG-AUTOMATIK', files: [file] });
       return;
     }
-    openMediaViewer({ downloadUrl: url, previewUrl: url, filename });
+    openMediaViewer({ downloadUrl: url, previewUrl: url, filename, video });
   } catch (error) {
     if (error.name !== 'AbortError') alert(error.message || 'Sichern fehlgeschlagen.');
   }
@@ -258,25 +258,29 @@ function openMediaViewer({ downloadUrl, previewUrl, filename, video = false }) {
   download.href = downloadUrl;
   download.download = safeName;
   const share = root.querySelector('.viewer-share');
-  share.onclick = () => shareOutput(downloadUrl, safeName);
+  share.onclick = () => shareOutput(downloadUrl, safeName, video);
   root.hidden = false;
   document.body.classList.add('viewer-open');
 }
 
 function bindShareButtons() {
   document.querySelectorAll('.share').forEach(button => {
-    button.addEventListener('click', () => { playSound('click'); shareOutput(button.dataset.url, button.dataset.name); });
+    button.addEventListener('click', () => {
+      playSound('click');
+      shareOutput(button.dataset.url, button.dataset.name, button.dataset.video === 'true');
+    });
   });
   document.querySelectorAll('[data-download="true"]').forEach(link => {
     link.addEventListener('click', event => {
       event.preventDefault();
       playSound('click');
-      openMediaViewer({
-        downloadUrl: link.dataset.url || link.href,
-        previewUrl: link.dataset.preview || link.href,
-        filename: link.dataset.name || 'Datei',
-        video: link.dataset.video === 'true',
-      });
+      // On iPhone this opens the native share sheet, where the user can
+      // choose “Video sichern” instead of being sent to the file viewer.
+      shareOutput(
+        link.dataset.url || link.href,
+        link.dataset.name || 'Datei',
+        link.dataset.video === 'true',
+      );
     });
   });
 }
