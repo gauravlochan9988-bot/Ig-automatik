@@ -432,9 +432,11 @@ class Handler(BaseHTTPRequestHandler):
         if not candidate.is_relative_to(self.web_dir.resolve()) or not candidate.is_file():
             self.send_json({"error": "Nicht gefunden."}, HTTPStatus.NOT_FOUND)
             return
-        self._send_file(candidate)
+        # Static app files must never stay cached in Safari/iOS. Otherwise a
+        # Home-Screen app can keep showing an older HTML/CSS/JS combination.
+        self._send_file(candidate, cache_control="no-store")
 
-    def _send_file(self, path: Path, attachment=False):
+    def _send_file(self, path: Path, attachment=False, cache_control=None):
         size = path.stat().st_size
         start, end = 0, size - 1
         partial = False
@@ -463,7 +465,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Accept-Ranges", "bytes")
         if partial:
             self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
-        self.send_header("Cache-Control", "no-store" if attachment else "no-cache")
+        self.send_header("Cache-Control", cache_control or ("no-store" if attachment else "no-cache"))
         if attachment:
             safe_name = path.name.replace('"', "")
             self.send_header("Content-Disposition", f'attachment; filename="{safe_name}"')
