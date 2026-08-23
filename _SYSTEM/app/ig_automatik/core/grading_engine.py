@@ -6,6 +6,7 @@ import subprocess
 import time
 import functools
 import hashlib
+import tempfile
 from pathlib import Path
 from typing import Dict, Optional, Any
 import numpy as np
@@ -83,9 +84,23 @@ def load_rgb(path):
 # Technical Normalization
 # ============================================================================
 
-def normalize_technical(rgb):
-    """Normalize exposure and white balance."""
+def normalize_technical(rgb, preserve_reference=True):
+    """Prepare an image without silently changing a good original.
+
+    The old implementation always targeted a global mean luminance of 0.5.
+    That made a correctly exposed bright image darker before grading even
+    started.  Reference-preserving mode is now the default; a future explicit
+    technical correction can opt into the legacy normalizer deliberately.
+    """
     params = {}
+
+    rgb = np.clip(rgb.astype(np.float32), 0.0, 1.0)
+    if preserve_reference:
+        return rgb.copy(), {
+            "exposure_gain": 1.0,
+            "wb_gains": [1.0, 1.0, 1.0],
+            "reference_preserved": True,
+        }
 
     # Exposure normalization
     gray = cv2.cvtColor(
@@ -243,6 +258,112 @@ def _protect_highlights(rgb, threshold=None, rolloff_factor=None):
     return np.where(rgb > threshold, compressed, rgb).astype(np.float32)
 
 
+# ============================================================================
+# Original-Preservation Reference and Visual QA
+# ============================================================================
+
+def _luma_plane(rgb):
+    """Return perceptual luma for an RGB float image."""
+    rgb = np.clip(rgb.astype(np.float32), 0.0, 1.0)
+    return (
+        rgb[..., 0] * 0.2126
+        + rgb[..., 1] * 0.7152
+        + rgb[..., 2] * 0.0722
+    )
+
+
+def _skin_region_mask(rgb):
+    """Best-effort local skin mask used only for safety checks."""
+    rgb = np.clip(rgb.astype(np.float32), 0.0, 1.0)
+    hsv = cv2.cvtColor((rgb * 255).astype(np.uint8), cv2.COLOR_RGB2HSV)
+    r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    hue = hsv[..., 0]
+    sat = hsv[..., 1]
+    val = hsv[..., 2]
+    return (
+        (((hue <= 25) | (hue >= 170)) & (sat >= 20) & (sat <= 190) & (val >= 45))
+        & (r >= g * 0.88)
+        & (g >= b * 0.88)
+        & ((r - b) >= 0.04)
+    )
+
+
+def _white_region_mask(rgb):
+    """Find bright, low-saturation pixels such as shirts, walls, or clouds."""
+    hsv = cv2.cvtColor((np.clip(rgb, 0.0, 1.0) * 255).astype(np.uint8), cv2.COLOR_RGB2HSV)
+    return (hsv[..., 1] <= 38) & (hsv[..., 2] >= 170)
+
+
+def _sky_region_mask(rgb):
+    """Find a conservative blue/cyan sky candidate in the upper image."""
+    rgb = np.clip(rgb.astype(np.float32), 0.0, 1.0)
+    h, w = rgb.shape[:2]
+    upper = np.zeros((h, w), dtype=bool)
+    upper[:max(1, int(round(h * 0.42)))] = True
+    hsv = cv2.cvtColor((rgb * 255).astype(np.uint8), cv2.COLOR_RGB2HSV)
+    hue = hsv[..., 0]
+    sat = hsv[..., 1]
+    val = hsv[..., 2]
+    return upper & (hue >= 80) & (hue <= 135) & (sat >= 20) & (val >= 65)
+
+
+def _region_profile(rgb, mask):
+    """Return JSON-safe statistics for one semantic safety region."""
+    count = int(mask.sum())
+    ratio = count / float(mask.size or 1)
+    if count < max(12, int(mask.size * 0.005)):
+        return {"detected": False, "ratio": round(ratio, 4)}
+
+    pixels = np.clip(rgb[mask].astype(np.float32), 0.0, 1.0)
+    hsv = cv2.cvtColor((pixels.reshape(-1, 1, 3) * 255).astype(np.uint8), cv2.COLOR_RGB2HSV)
+    luma = _luma_plane(pixels.reshape(-1, 1, 3)).reshape(-1)
+    mean_rgb = pixels.mean(axis=0)
+    return {
+        "detected": True,
+        "ratio": round(ratio, 4),
+        "luma": round(float(luma.mean()), 4),
+        "saturation": round(float(hsv[..., 1].mean() / 255.0), 4),
+        "color_cast": round(float(mean_rgb.max() - mean_rgb.min()), 4),
+    }
+
+
+def analyze_color_reference(rgb):
+    """Build the immutable technical reference profile for an image/crop."""
+    rgb = np.clip(rgb.astype(np.float32), 0.0, 1.0)
+    luma = _luma_plane(rgb)
+    hsv = cv2.cvtColor((rgb * 255).astype(np.uint8), cv2.COLOR_RGB2HSV)
+    masks = {
+        "skin": _skin_region_mask(rgb),
+        "white": _white_region_mask(rgb),
+        "sky": _sky_region_mask(rgb),
+    }
+    return {
+        "luma_mean": round(float(luma.mean()), 4),
+        "luma_median": round(float(np.median(luma)), 4),
+        "luma_p10": round(float(np.percentile(luma, 10)), 4),
+        "luma_p90": round(float(np.percentile(luma, 90)), 4),
+        "shadow_ratio": round(float((luma < 0.12).mean()), 4),
+        "highlight_ratio": round(float((luma > 0.88).mean()), 4),
+        "clipped_high_pct": round(float(((rgb > 0.995).any(axis=2)).mean() * 100), 3),
+        "clipped_low_pct": round(float(((rgb < 0.005).any(axis=2)).mean() * 100), 3),
+        "contrast": round(float(luma.std()), 4),
+        "saturation_mean": round(float(hsv[..., 1].mean() / 255.0), 4),
+        "color_balance_rb": round(float(rgb[..., 0].mean() - rgb[..., 2].mean()), 4),
+        "regions": {name: _region_profile(rgb, mask) for name, mask in masks.items()},
+    }
+
+
+def _profile_value(profile, key, default=0.0):
+    try:
+        return float((profile or {}).get(key, default))
+    except (TypeError, ValueError):
+        return float(default)
+
+
+def _relative_drift(value, reference, floor=0.25):
+    return (float(value) - float(reference)) / max(abs(float(reference)), floor)
+
+
 def grade_variant_a(base, scene=None, intent=None):
     """Premium Natural grading (Variant A)."""
     scene = scene or analyze_scene(base)
@@ -350,6 +471,8 @@ def _grade_variant_with_qa(
     threshold_pct=None,
     lut_path=None,
     lut_strength=1.0,
+    reference=None,
+    reference_profile=None,
 ):
     """Grade variant with automatic quality assurance feedback loop.
 
@@ -360,18 +483,29 @@ def _grade_variant_with_qa(
     """
     if threshold_pct is None:
         threshold_pct = GradingConstants.QA_HIGHLIGHT_CLIP_MAX_PCT
+    if max_retries is None:
+        max_retries = GradingConstants.QA_MAX_RECOVERY_STEPS
+    max_retries = max(0, min(int(max_retries), GradingConstants.QA_MAX_RECOVERY_STEPS))
 
     current_intent = dict(intent) if intent else {}
 
     best_out = None
     best_qa = None
     retries_used = 0
+    recovery_steps = []
+    strengths = (1.0, 0.75, 0.50, 0.25, 0.0)
 
     for attempt in range(max_retries + 1):
+        strength = strengths[min(attempt, len(strengths) - 1)]
         if attempt > 0:
             retries_used += 1
-            # Progressive damping on each retry
-            scale = 0.5 ** attempt
+            # Progressive damping on each retry. The candidate is also blended
+            # back toward the original crop below, so a failed creative look
+            # can never remain fully applied.
+            scale = strength
+            recovery_steps.append(
+                "reduce_lut" if variant == "B" and lut_path else "reduce_grading_strength"
+            )
             current_intent = {
                 "contrast": float(intent.get("contrast", 0.0)) * scale,
                 "saturation": float(intent.get("saturation", 0.0)) * scale,
@@ -381,19 +515,25 @@ def _grade_variant_with_qa(
             current_intent = dict(intent) if intent else {}
 
         if variant == "B":
-            # On first attempt use LUT if available; on retries fallback to softer algorithmic B
-            active_lut = lut_path if attempt == 0 else None
+            # Keep the same LUT candidate while progressively lowering its
+            # strength; the final recovery step disables it entirely.
+            active_lut = lut_path if attempt < max_retries else None
             out = grade_variant_b(
                 crop,
                 scene=scene,
                 intent=current_intent if intent else None,
                 lut_path=active_lut,
-                lut_strength=lut_strength,
+                lut_strength=lut_strength * strength,
             )
         else:
             out = grade_variant_a(
                 crop, scene=scene, intent=current_intent if intent else None
             )
+
+        if strength < 1.0:
+            # This is the final safety brake: recovery is always a blend with
+            # the untouched crop, never a blind re-run of a weaker look.
+            out = crop * (1.0 - strength) + out * strength
 
         # On retries, add extra highlight damping directly to the result if still clipping
         if attempt > 0:
@@ -401,15 +541,46 @@ def _grade_variant_with_qa(
             # Gentle EV pull-down on stubborn highlights
             out = np.clip(out * (0.98 ** attempt), 0, 1)
 
-        qa = technical_qa(out, ratio)
+        qa = technical_qa(
+            out,
+            ratio,
+            reference=reference,
+            reference_profile=reference_profile,
+            variant=variant,
+        )
 
-        if best_out is None or qa["checks"]["clipped_high_pct"] < best_qa["checks"]["clipped_high_pct"]:
+        if reference is not None:
+            is_better = best_qa is None or qa["checks"].get("quality_score", 0) > best_qa["checks"].get("quality_score", 0)
+        else:
+            is_better = best_qa is None or qa["checks"]["clipped_high_pct"] < best_qa["checks"]["clipped_high_pct"]
+        if best_out is None or is_better:
             best_out = out
             best_qa = qa
 
         if qa["pass"]:
+            qa["checks"]["final_grade_strength"] = round(float(strength), 3)
+            qa["recovery"] = list(recovery_steps)
             return out, qa, retries_used
 
+    if reference is not None:
+        # The original crop is the non-negotiable safe fallback. It is valid
+        # even when the source itself contains clipped pixels, because QA only
+        # penalizes new degradation relative to that source.
+        safe = np.clip(reference.astype(np.float32), 0.0, 1.0)
+        safe_qa = technical_qa(
+            safe,
+            ratio,
+            reference=safe,
+            reference_profile=reference_profile,
+            variant=variant,
+        )
+        safe_qa["recovery"] = list(recovery_steps) + ["original_preserving_fallback"]
+        safe_qa["checks"]["fallback"] = "original_like_safe_version"
+        safe_qa["checks"]["final_grade_strength"] = 0.0
+        return safe, safe_qa, retries_used
+
+    if best_qa is not None:
+        best_qa["recovery"] = list(recovery_steps)
     return best_out, best_qa, retries_used
 
 
@@ -604,8 +775,14 @@ def _crop_to_ratio(rgb_float, crop_target, anchor=None):
     return np.ascontiguousarray(cropped)
 
 
-def technical_qa(rgb_float, crop_target):
-    """Quality assurance check."""
+def technical_qa(rgb_float, crop_target, reference=None, reference_profile=None, variant="A"):
+    """Run technical QA, optionally against the untouched source reference.
+
+    With no reference this keeps the legacy clipping/ratio behavior for
+    callers that only need a standalone technical check.  With a reference it
+    adds original-preservation checks for tonal drift, shadows, saturation,
+    color cast, and important semantic regions.
+    """
     h, w = rgb_float.shape[:2]
     ratios = {
         "4:5": (4, 5), "4/5": (4, 5),
@@ -632,8 +809,109 @@ def technical_qa(rgb_float, crop_target):
         "brightness_mean": round(float(rgb_float.mean()), 3),
     }
 
+    failures = []
     ok = checks["ratio_ok"] and high_clip < (GradingConstants.QA_HIGHLIGHT_CLIP_MAX_PCT / 100.0)
-    return {"checks": checks, "pass": bool(ok)}
+
+    if reference is not None or reference_profile is not None:
+        if reference is not None:
+            reference = np.clip(reference.astype(np.float32), 0.0, 1.0)
+        reference_profile = reference_profile or analyze_color_reference(reference)
+        candidate_profile = analyze_color_reference(rgb_float)
+        creative = str(variant).upper() == "B"
+        luma_limit = (
+            GradingConstants.QA_CREATIVE_LUMA_DRIFT
+            if creative else GradingConstants.QA_NATURAL_LUMA_DRIFT
+        )
+        ref_mean = _profile_value(reference_profile, "luma_mean", 0.5)
+        ref_median = _profile_value(reference_profile, "luma_median", ref_mean)
+        mean_drift = _relative_drift(candidate_profile["luma_mean"], ref_mean)
+        median_drift = _relative_drift(candidate_profile["luma_median"], ref_median)
+        shadow_delta = candidate_profile["shadow_ratio"] - _profile_value(reference_profile, "shadow_ratio")
+        saturation_delta = candidate_profile["saturation_mean"] - _profile_value(reference_profile, "saturation_mean")
+        clip_delta = candidate_profile["clipped_high_pct"] - _profile_value(reference_profile, "clipped_high_pct")
+        saturation_limit = (
+            GradingConstants.QA_SATURATION_DRIFT_MAX
+            if creative else GradingConstants.QA_NATURAL_SATURATION_DRIFT_MAX
+        )
+        color_cast_limit = (
+            GradingConstants.QA_COLOR_CAST_DRIFT_MAX
+            if creative else GradingConstants.QA_NATURAL_COLOR_CAST_DRIFT_MAX
+        )
+
+        checks.update({
+            "reference_luma_mean": round(ref_mean, 4),
+            "candidate_luma_mean": round(float(candidate_profile["luma_mean"]), 4),
+            "candidate_luma_median": round(float(candidate_profile["luma_median"]), 4),
+            "luma_drift_pct": round(mean_drift * 100, 2),
+            "median_luma_drift_pct": round(median_drift * 100, 2),
+            "shadow_delta_pct": round(shadow_delta * 100, 2),
+            "saturation_delta": round(saturation_delta, 4),
+            "highlight_clip_delta_pct": round(clip_delta, 2),
+            "reference_profile": reference_profile,
+        })
+
+        # Hard safety gates. A/B may look different, but neither may destroy
+        # the source exposure structure or introduce a strong technical cast.
+        if abs(mean_drift) > luma_limit:
+            failures.append("exposure_drift")
+        if abs(median_drift) > luma_limit * GradingConstants.QA_MEDIAN_LUMA_DRIFT_MULTIPLIER:
+            failures.append("midtone_drift")
+        if shadow_delta > GradingConstants.QA_SHADOW_DRIFT_MAX:
+            failures.append("shadow_crush")
+        if saturation_delta > saturation_limit:
+            failures.append("oversaturation")
+        if clip_delta > GradingConstants.QA_CLIP_DRIFT_MAX * 100:
+            failures.append("new_highlight_clipping")
+
+        # Regional checks use the original pixel locations as a stable mask.
+        if reference is not None:
+            for region_name, mask_fn, luma_limit_region in (
+                ("skin", _skin_region_mask, luma_limit),
+                ("white", _white_region_mask, luma_limit),
+                ("sky", _sky_region_mask, luma_limit * 1.25),
+            ):
+                mask = mask_fn(reference)
+                if int(mask.sum()) < max(12, int(mask.size * 0.005)):
+                    continue
+                ref_region = _region_profile(reference, mask)
+                candidate_region = _region_profile(rgb_float, mask)
+                region_drift = _relative_drift(
+                    candidate_region.get("luma", 0.0), ref_region.get("luma", 0.0), floor=0.20
+                )
+                checks[f"{region_name}_luma_drift_pct"] = round(region_drift * 100, 2)
+                if abs(region_drift) > luma_limit_region:
+                    failures.append(f"{region_name}_degradation")
+                if region_name in ("skin", "white"):
+                    cast_drift = candidate_region.get("color_cast", 0.0) - ref_region.get("color_cast", 0.0)
+                    saturation_drift = candidate_region.get("saturation", 0.0) - ref_region.get("saturation", 0.0)
+                    checks[f"{region_name}_color_cast_drift"] = round(float(cast_drift), 4)
+                    checks[f"{region_name}_saturation_drift"] = round(float(saturation_drift), 4)
+                    if saturation_drift > saturation_limit:
+                        failures.append(f"{region_name}_oversaturation")
+                    if abs(float(cast_drift)) > color_cast_limit:
+                        failures.append(f"{region_name}_color_shift")
+
+        # Weighted score is diagnostic; hard gates above always win.
+        penalty = (
+            min(abs(mean_drift) / max(luma_limit, 1e-6), 3.0) * 25
+            + min(abs(median_drift) / max(luma_limit * 1.25, 1e-6), 3.0) * 15
+            + min(max(shadow_delta, 0.0) / GradingConstants.QA_SHADOW_DRIFT_MAX, 3.0) * 20
+            + min(max(saturation_delta, 0.0) / max(saturation_limit, 1e-6), 3.0) * 15
+            + min(max(clip_delta, 0.0) / (GradingConstants.QA_CLIP_DRIFT_MAX * 100), 3.0) * 15
+            + len(failures) * 5
+        )
+        checks["quality_score"] = round(max(0.0, 100.0 - penalty), 2)
+        minimum_score = (
+            GradingConstants.QA_MIN_CREATIVE_SCORE
+            if creative else GradingConstants.QA_MIN_NATURAL_SCORE
+        )
+        if checks["quality_score"] < minimum_score:
+            failures.append("quality_score_below_floor")
+        checks["qa_failures"] = list(dict.fromkeys(failures))
+        checks["qa_mode"] = "original_preserving"
+        ok = checks["ratio_ok"] and not failures
+
+    return {"checks": checks, "pass": bool(ok), "recovery": []}
 
 
 # ============================================================================
@@ -715,12 +993,13 @@ def process_photo(cfg, src, out_root, output_stem=None):
     export_mgr = ExportManager(cfg)
 
     stem = output_stem or Path(src).stem
-    rgb = load_rgb(src)
+    source_rgb = load_rgb(src)
     results = []
 
-    # Apply the technical baseline before semantic analysis and creative
-    # grading, so exposure and white balance are consistent across variants.
-    rgb, technical_params = normalize_technical(rgb)
+    # Keep the source untouched as the quality reference. Technical
+    # preparation is deliberately conservative and cannot silently darken a
+    # well-exposed original before QA has seen it.
+    rgb, technical_params = normalize_technical(source_rgb, preserve_reference=True)
 
     # Analyse once per photo, not once per format: the scene does not change
     # between POSTS and STORIES, and each call costs a request.
@@ -732,7 +1011,7 @@ def process_photo(cfg, src, out_root, output_stem=None):
 
     # The subject anchor is image-level (vision box or detected face), so it is
     # computed once and reused across formats.
-    anchor = _subject_anchor(rgb, scene_plan or {})
+    anchor = _subject_anchor(source_rgb, scene_plan or {})
 
     for fmt in cfg.get("produce_formats", ["POSTS", "STORIES"]):
         ratio = "9:16" if fmt == "STORIES" else "4:5"
@@ -762,13 +1041,19 @@ def process_photo(cfg, src, out_root, output_stem=None):
                 0.5 * (1.0 - subject_priority) + crop_anchor[0] * subject_priority,
                 0.45 * (1.0 - subject_priority) + crop_anchor[1] * subject_priority,
             )
+        # Use identical geometry for the working image and the untouched
+        # reference crop. Color QA must compare like-for-like pixels.
+        reference_crop = _crop_to_ratio(source_rgb, ratio, anchor=crop_anchor)
         crop = _crop_to_ratio(rgb, ratio, anchor=crop_anchor)
+        reference_profile = analyze_color_reference(reference_crop)
         # The vision model supplies a bounded grading nudge.  Keep the local
         # scene defaults as the base and apply the model intent on top. The
         # scene analysis is shared by both variants instead of being recomputed.
         intent = plan.get("grading_intent") if scene_plan else None
         scene = analyze_scene(crop)
-        max_qa_retries = int(cfg.get("max_qa_retries", 2))
+        max_qa_retries = int(
+            cfg.get("max_qa_retries", GradingConstants.QA_MAX_RECOVERY_STEPS)
+        )
 
         # Vision supplies semantic facts only. The local style engine combines
         # those facts with the account profile, scores compatible LUT candidates,
@@ -781,13 +1066,21 @@ def process_photo(cfg, src, out_root, output_stem=None):
         plan["style_intent"] = style_intent
         plan["style_a"] = "premium_natural"
         plan["style_b"] = f"premium_creative:{style_intent['family']}"
+        plan["reference_profile"] = reference_profile
         if selected_lut:
             plan["lut_b"] = selected_lut["name"]
             plan["lut_strength_b"] = lut_strength
             plan["lut_candidates"] = selected_lut["candidates"]
 
         a, qa_a, retries_a = _grade_variant_with_qa(
-            "A", crop, scene=scene, intent=intent, ratio=ratio, max_retries=max_qa_retries
+            "A",
+            crop,
+            scene=scene,
+            intent=intent,
+            ratio=ratio,
+            max_retries=max_qa_retries,
+            reference=reference_crop,
+            reference_profile=reference_profile,
         )
         b, qa_b, retries_b = _grade_variant_with_qa(
             "B",
@@ -798,6 +1091,8 @@ def process_photo(cfg, src, out_root, output_stem=None):
             max_retries=max_qa_retries,
             lut_path=matched_lut,
             lut_strength=lut_strength,
+            reference=reference_crop,
+            reference_profile=reference_profile,
         )
 
         if retries_a > 0 or retries_b > 0:
@@ -873,6 +1168,7 @@ def _build_reel_command(
     output_fps=None,
     output_width=None,
     output_height=None,
+    grade_strength=1.0,
 ):
     """Build an Instagram/mobile-compatible ffmpeg export command."""
     # Keep paths relative to the project working directory.  The project lives
@@ -883,21 +1179,17 @@ def _build_reel_command(
     output_width = int(output_width or cfg.get("reel_width", 1080))
     output_height = int(output_height or cfg.get("reel_height", 1920))
     output_fps = int(output_fps or cfg.get("reel_output_fps", 30))
+    grade_strength = max(0.0, min(1.0, float(grade_strength)))
     base = (
         f"scale={output_width}:{output_height}:force_original_aspect_ratio=increase,"
         f"crop={output_width}:{output_height}"
     )
     
-    # Use 3D LUT filter if Variant B has a LUT file, otherwise fallback to template/eq
+    # A video LUT path is already identity-blended by process_reel. Applying
+    # it with lut3d is therefore safe and consistent with the photo path.
     if variant == "B" and lut_path and Path(lut_path).is_file():
-        # Video LUT application stays a single temporal FFmpeg filter.  Photo
-        # masters use pixel-accurate strength blending; for video, avoiding a
-        # second split/blend graph here prevents temporal/filter-graph errors
-        # across Best-Cut transitions. The candidate is therefore only used
-        # when the account deliberately asks for a strong creative look.
         clean_lut_path = str(Path(lut_path).resolve()).replace("\\", "/").replace(":", "\\:")
-        lut_strength = max(0.0, min(1.0, float(lut_strength)))
-        color_filter = f"lut3d='{clean_lut_path}'" if lut_strength >= 0.60 else "eq=contrast=1.12:saturation=1.10"
+        color_filter = f"lut3d='{clean_lut_path}'"
     elif template and "grading" in template:
         t_grading = template["grading"]
         contrast = float(t_grading.get("contrast", 1.2 if variant == "B" else 1.1))
@@ -905,10 +1197,12 @@ def _build_reel_command(
         if variant == "B":
             contrast *= 1.15
             saturation *= 1.1
+        contrast = 1.0 + (contrast - 1.0) * grade_strength
+        saturation = 1.0 + (saturation - 1.0) * grade_strength
         color_filter = f"eq=contrast={contrast:.2f}:saturation={saturation:.2f}"
     else:
-        contrast = 2.5 if variant == "B" else 1.5
-        color_filter = f"eq=contrast={1 + contrast / 10.0}:saturation=1.3"
+        contrast = (2.5 if variant == "B" else 1.5) * grade_strength
+        color_filter = f"eq=contrast={1 + contrast / 10.0:.2f}:saturation={1 + 0.3 * grade_strength:.2f}"
 
     ken_burns = bool(
         template.get("ken_burns", False)
@@ -1020,6 +1314,7 @@ def _save_reel_manifest(
     lut_name=None,
     source_info=None,
     fps_plan=None,
+    qa=None,
 ):
     """Save the editing decision next to the other machine-readable manifests."""
     manifest_dir = Path(manifest_dir)
@@ -1036,6 +1331,7 @@ def _save_reel_manifest(
         "lut_b": lut_name,
         "source_technical": source_info or {},
         "fps_plan": fps_plan or {},
+        "qa": qa or {},
         "grading_variants": ["A", "B"],
         "masters": {key: str(value) for key, value in (masters or {}).items()},
         "outputs": {key: str(value) for key, value in outputs.items()},
@@ -1060,6 +1356,76 @@ def _select_reel_segments(cfg, segments, scores):
         max_segments=cfg.get("best_clips_max_segments", 15),
         max_clip_duration=float(cfg.get("reel_max_clip_duration", 8)),
     )
+
+
+def _video_reference_qa(src, candidate, duration, selected_segments=None, variant="A"):
+    """Compare representative output frames with their source references."""
+    from .video_tools import extract_segment_frame, probe_duration
+
+    output_duration = probe_duration(str(candidate)) or min(float(duration or 0), 30.0)
+    pairs = []
+    if selected_segments:
+        output_cursor = 0.0
+        for segment in selected_segments[:GradingConstants.QA_MAX_RECOVERY_STEPS + 1]:
+            start = float(segment.get("start", 0.0))
+            end = float(segment.get("end", start))
+            take = float(segment.get("take", max(0.0, end - start)))
+            if take <= 0:
+                continue
+            pairs.append(((start + end) / 2.0, output_cursor + take / 2.0))
+            output_cursor += take
+    else:
+        duration_limit = min(float(duration or 0.0), float(output_duration or 0.0), 30.0)
+        if duration_limit > 0:
+            for fraction in (0.15, 0.35, 0.55, 0.75, 0.90):
+                pairs.append((duration_limit * fraction, duration_limit * fraction))
+
+    frame_results = []
+    for source_time, output_time in pairs:
+        source_frame = extract_segment_frame(str(src), source_time)
+        output_frame = extract_segment_frame(str(candidate), output_time)
+        try:
+            if not source_frame or not output_frame:
+                continue
+            source_rgb = load_rgb(source_frame)
+            output_rgb = load_rgb(output_frame)
+            qa = technical_qa(
+                output_rgb,
+                "9:16",
+                reference_profile=analyze_color_reference(source_rgb),
+                variant=variant,
+            )
+            frame_results.append({
+                "source_time": round(float(source_time), 3),
+                "output_time": round(float(output_time), 3),
+                "pass": qa["pass"],
+                "checks": qa["checks"],
+            })
+        finally:
+            for frame_path in (source_frame, output_frame):
+                if frame_path:
+                    try:
+                        os.unlink(frame_path)
+                    except OSError:
+                        pass
+
+    if not frame_results:
+        return {"pass": False, "checks": {"samples": 0}, "failures": ["no_qa_samples"]}
+
+    scores = [float(item["checks"].get("quality_score", 0.0)) for item in frame_results]
+    failures = []
+    for item in frame_results:
+        failures.extend(item["checks"].get("qa_failures", []))
+    return {
+        "pass": all(item["pass"] for item in frame_results),
+        "checks": {
+            "samples": len(frame_results),
+            "quality_score": round(float(np.mean(scores)), 2),
+            "failed_samples": sum(1 for item in frame_results if not item["pass"]),
+        },
+        "failures": list(dict.fromkeys(failures)),
+        "frames": frame_results,
+    }
 
 
 def process_reel(cfg, src, out_root, output_stem=None):
@@ -1189,47 +1555,115 @@ def process_reel(cfg, src, out_root, output_stem=None):
     masters_dir.mkdir(parents=True, exist_ok=True)
     reel_outputs = {}
     reel_masters = {}
+    reel_qa = {}
+    max_video_retries = max(
+        0,
+        min(
+            int(cfg.get("max_qa_retries", GradingConstants.QA_MAX_RECOVERY_STEPS)),
+            GradingConstants.QA_MAX_RECOVERY_STEPS,
+        ),
+    )
+    recovery_strengths = (1.0, 0.75, 0.50, 0.25, 0.0)
     for variant in ("A", "B"):
         master = masters_dir / f"{stem}_REEL_{variant}_master.mp4"
-        master_part = _reel_part_path(master)
-        master_part.unlink(missing_ok=True)
-        master_cmd = _build_reel_command(
-            cfg,
-            src,
-            master_part,
-            variant,
-            selected_segments=selected_segments,
-            include_audio=has_audio,
-            use_gpu=use_gpu,
-            template=template,
-            lut_path=matched_lut if variant == "B" else None,
-            lut_strength=lut_strength,
-            output_fps=fps_plan["output_fps"],
-            output_width=int(cfg.get("reel_master_width", 1440)),
-            output_height=int(cfg.get("reel_master_height", 2560)),
-        )
-        r = subprocess.run(master_cmd, capture_output=True, text=True, timeout=600)
-        if r.returncode != 0:
-            logger.error(f"Reel master {variant} failed", error=Exception(r.stderr[-200:]))
-            master_part.unlink(missing_ok=True)
-            raise RuntimeError(f"Reel master {variant} export failed for {src.name}")
-        master_part.replace(master)
-        reel_masters[variant] = master
-
         out = out_dir / f"{stem}_{variant}.mp4"
-        part = _reel_part_path(out)
-        part.unlink(missing_ok=True)
-        delivery_cmd = _build_social_derivative_command(
-            cfg, master, part, include_audio=has_audio, use_gpu=use_gpu,
-            output_fps=fps_plan["output_fps"],
-        )
-        r = subprocess.run(delivery_cmd, capture_output=True, text=True, timeout=600)
-        if r.returncode != 0:
-            logger.error(f"Reel delivery {variant} failed", error=Exception(r.stderr[-200:]))
-            part.unlink(missing_ok=True)
-            raise RuntimeError(f"Reel delivery {variant} export failed for {src.name}")
-        part.replace(out)
-        reel_outputs[variant] = out
+        variant_qa = None
+        recovery_steps = []
+        for attempt in range(max_video_retries + 1):
+            strength = recovery_strengths[min(attempt, len(recovery_strengths) - 1)]
+            if attempt > 0:
+                recovery_steps.append(
+                    "reduce_lut" if variant == "B" and matched_lut else "reduce_grading_strength"
+                )
+
+            active_lut = None
+            temporary_lut = None
+            if variant == "B" and matched_lut and strength > 0.0:
+                try:
+                    from . import lut_engine
+                    fd, temporary_lut = tempfile.mkstemp(suffix=".cube")
+                    os.close(fd)
+                    lut_engine.write_blended_cube(
+                        matched_lut, lut_strength * strength, Path(temporary_lut)
+                    )
+                    active_lut = Path(temporary_lut)
+                except Exception as exc:
+                    logger.warn(f"Adaptive video LUT unavailable, using safe algorithmic grade: {exc}")
+                    active_lut = None
+
+            try:
+                master_part = _reel_part_path(master)
+                master_part.unlink(missing_ok=True)
+                master_cmd = _build_reel_command(
+                    cfg,
+                    src,
+                    master_part,
+                    variant,
+                    selected_segments=selected_segments,
+                    include_audio=has_audio,
+                    use_gpu=use_gpu,
+                    template=template,
+                    lut_path=active_lut,
+                    lut_strength=1.0,
+                    output_fps=fps_plan["output_fps"],
+                    output_width=int(cfg.get("reel_master_width", 1440)),
+                    output_height=int(cfg.get("reel_master_height", 2560)),
+                    grade_strength=strength,
+                )
+                r = subprocess.run(master_cmd, capture_output=True, text=True, timeout=600)
+                if r.returncode != 0:
+                    logger.error(f"Reel master {variant} failed", error=Exception(r.stderr[-200:]))
+                    master_part.unlink(missing_ok=True)
+                    raise RuntimeError(f"Reel master {variant} export failed for {src.name}")
+                master_part.replace(master)
+                reel_masters[variant] = master
+
+                part = _reel_part_path(out)
+                part.unlink(missing_ok=True)
+                delivery_cmd = _build_social_derivative_command(
+                    cfg, master, part, include_audio=has_audio, use_gpu=use_gpu,
+                    output_fps=fps_plan["output_fps"],
+                )
+                r = subprocess.run(delivery_cmd, capture_output=True, text=True, timeout=600)
+                if r.returncode != 0:
+                    logger.error(f"Reel delivery {variant} failed", error=Exception(r.stderr[-200:]))
+                    part.unlink(missing_ok=True)
+                    raise RuntimeError(f"Reel delivery {variant} export failed for {src.name}")
+                part.replace(out)
+                reel_outputs[variant] = out
+            finally:
+                if temporary_lut:
+                    try:
+                        os.unlink(temporary_lut)
+                    except OSError:
+                        pass
+
+            variant_qa = _video_reference_qa(
+                src,
+                out,
+                duration,
+                selected_segments=selected_segments,
+                variant=variant,
+            )
+            if variant_qa["pass"]:
+                break
+
+            logger.info(
+                f"[{variant}] Video QA recovery {attempt + 1}/{max_video_retries + 1}: "
+                f"{', '.join(variant_qa.get('failures', [])) or 'candidate rejected'}"
+            )
+
+        if variant_qa is None:
+            raise RuntimeError(f"Video QA did not run for {src.name} ({variant})")
+        variant_qa["recovery"] = recovery_steps
+        variant_qa["checks"]["final_grade_strength"] = round(float(strength), 3)
+        if variant == "B" and matched_lut:
+            variant_qa["checks"]["final_lut_strength"] = round(float(lut_strength * strength), 3)
+        if not variant_qa["pass"]:
+            # Strength 0 is the neutral, original-like delivery. Keep it as a
+            # safe master rather than exporting a failed creative candidate.
+            variant_qa["checks"]["fallback"] = "original_like_safe_version"
+        reel_qa[variant] = variant_qa
         logger.info(f"[{variant}] Master -> {master.name}; Instagram -> {out.name}")
 
     manifest_dir = cfg.get(
@@ -1250,6 +1684,7 @@ def process_reel(cfg, src, out_root, output_stem=None):
         lut_name=lut_name if matched_lut else None,
         source_info=source_info,
         fps_plan=fps_plan,
+        qa=reel_qa,
     )
 
     # Save ready-to-copy caption alongside Reels

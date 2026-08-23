@@ -49,6 +49,22 @@ class GradingConstants:
     # ========== QA Thresholds ==========
     QA_HIGHLIGHT_CLIP_MAX_PCT = 5.0
     QA_RATIO_TOLERANCE = 0.02
+    # Original-preserving color QA. These are deliberately conservative: a
+    # creative look may change the tonal distribution, but it must not cause
+    # an obvious technical or subject-level deterioration.
+    QA_NATURAL_LUMA_DRIFT = 0.08
+    QA_CREATIVE_LUMA_DRIFT = 0.12
+    QA_MEDIAN_LUMA_DRIFT_MULTIPLIER = 1.25
+    QA_SHADOW_DRIFT_MAX = 0.10
+    QA_SATURATION_DRIFT_MAX = 0.18
+    QA_NATURAL_SATURATION_DRIFT_MAX = 0.10
+    QA_COLOR_CAST_DRIFT_MAX = 0.08
+    QA_NATURAL_COLOR_CAST_DRIFT_MAX = 0.05
+    QA_CLIP_DRIFT_MAX = 0.03
+    QA_MIN_NATURAL_SCORE = 75.0
+    QA_MIN_CREATIVE_SCORE = 65.0
+    QA_MAX_RECOVERY_STEPS = 5
+    LUT_MAX_INITIAL_STRENGTH = 0.55
 
     # ========== Video Processing ==========
     VIDEO_CROP_WIDTH = 1080

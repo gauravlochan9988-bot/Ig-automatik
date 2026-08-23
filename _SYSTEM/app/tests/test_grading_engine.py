@@ -578,6 +578,68 @@ class GradingEngineTests(unittest.TestCase):
         self.assertEqual(white_qa["checks"]["clipped_low_pct"], 0.0)
         self.assertEqual(white_qa["checks"]["clipped_high_pct"], 100.0)
 
+    def test_reference_profile_rejects_visible_darkening(self):
+        reference = np.full((40, 40, 3), 0.72, dtype=np.float32)
+        candidate = np.full((40, 40, 3), 0.52, dtype=np.float32)
+
+        qa = engine.technical_qa(
+            candidate,
+            "1:1",
+            reference=reference,
+            reference_profile=engine.analyze_color_reference(reference),
+            variant="A",
+        )
+
+        self.assertFalse(qa["pass"])
+        self.assertIn("exposure_drift", qa["checks"]["qa_failures"])
+        self.assertLess(qa["checks"]["luma_drift_pct"], -20.0)
+
+    def test_original_preserving_recovery_falls_back_to_reference(self):
+        reference = np.full((40, 40, 3), 0.72, dtype=np.float32)
+        scene = {"natural": {"contrast": 3.0, "sat": 1.0}, "saturation": 0}
+        with patch.object(
+            engine,
+            "grade_variant_a",
+            return_value=np.full_like(reference, 0.20),
+        ):
+            graded, qa, retries = engine._grade_variant_with_qa(
+                "A",
+                reference,
+                scene=scene,
+                intent={"contrast": -1.0, "saturation": 0.0, "warmth": 0.0},
+                ratio="1:1",
+                max_retries=2,
+                reference=reference,
+            )
+
+        self.assertGreaterEqual(retries, 1)
+        self.assertTrue(qa["pass"])
+        self.assertEqual(qa["checks"]["fallback"], "original_like_safe_version")
+        np.testing.assert_allclose(graded, reference)
+
+    def test_blended_lut_writer_keeps_identity_at_zero_strength(self):
+        from ig_automatik.core import lut_engine
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "creative.cube"
+            source.write_text(
+                "LUT_3D_SIZE 2\n"
+                "1 1 1\n1 1 1\n1 1 1\n1 1 1\n"
+                "1 1 1\n1 1 1\n1 1 1\n1 1 1\n",
+                encoding="utf-8",
+            )
+            output = root / "identity.cube"
+            lut_engine.write_blended_cube(source, 0.0, output)
+            table = lut_engine.load_cube_file(output)
+            np.testing.assert_allclose(
+                table.reshape(-1, 3),
+                np.array([
+                    [0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0],
+                    [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1],
+                ], dtype=np.float32),
+            )
+
     def test_fractional_vision_intent_changes_grading(self):
         base = np.linspace(0.1, 0.9, 30, dtype=np.float32).reshape(5, 2, 3)
         scene = {"natural": {"contrast": 3, "sat": 1}, "saturation": 0}

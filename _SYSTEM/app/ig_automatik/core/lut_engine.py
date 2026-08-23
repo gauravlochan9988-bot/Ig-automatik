@@ -109,6 +109,33 @@ def apply_lut(rgb_float: np.ndarray, table: np.ndarray) -> np.ndarray:
     return np.clip(result.reshape(orig_shape), 0.0, 1.0).astype(np.float32)
 
 
+def write_blended_cube(cube_path: Path, strength: float, output_path: Path) -> Path:
+    """Write a LUT blended with identity at a bounded strength.
+
+    FFmpeg's ``lut3d`` filter applies a table at full strength. Generating an
+    identity-blended table lets photo and video use the same adaptive LUT
+    policy without a second, fragile filter graph.
+    """
+    cube_path = Path(cube_path)
+    output_path = Path(output_path)
+    strength = max(0.0, min(1.0, float(strength)))
+    table = load_cube_file(cube_path)
+    size = int(table.shape[0])
+    grid = np.indices((size, size, size), dtype=np.float32)
+    identity = np.stack(
+        [grid[2], grid[1], grid[0]], axis=-1
+    ) / float(max(1, size - 1))
+    blended = np.clip(identity * (1.0 - strength) + table * strength, 0.0, 1.0)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8") as handle:
+        handle.write("# IG-AUTOMATIK adaptive identity-blended LUT\n")
+        handle.write(f'LUT_3D_SIZE {size}\n')
+        for row in blended.reshape(-1, 3):
+            handle.write("{:.8f} {:.8f} {:.8f}\n".format(*[float(value) for value in row]))
+    return output_path
+
+
 def get_luts_directory() -> Path:
     """Return the central LUTs directory path (_SYSTEM/luts)."""
     # This module lives in _SYSTEM/app/ig_automatik/core/. Start discovery at

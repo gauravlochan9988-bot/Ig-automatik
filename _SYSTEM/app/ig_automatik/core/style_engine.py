@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ..config.paths import find_project_root, system_dir
+from ..config import GradingConstants
 from . import lut_engine
 
 
@@ -142,7 +143,12 @@ def choose_lut(style_intent: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     if not candidates or candidates[0]["score"] <= 0:
         return None
     selected = dict(candidates[0])
-    selected["strength"] = style_intent["lut_strength"]
+    # A LUT is a candidate look, never a full-strength instruction. QA may
+    # reduce this further for the individual source image.
+    selected["strength"] = min(
+        float(style_intent["lut_strength"]),
+        GradingConstants.LUT_MAX_INITIAL_STRENGTH,
+    )
     selected["candidates"] = [{"name": c["name"], "score": c["score"]} for c in candidates]
     return selected
 
