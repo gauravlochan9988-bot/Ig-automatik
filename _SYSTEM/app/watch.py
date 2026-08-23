@@ -31,7 +31,9 @@ from ig_automatik.utils import get_logger
 
 # The working folders live in the user-facing project root, which is *not* the
 # package folder when the code is hidden inside _SYSTEM.
-ROOT = find_project_root(PACKAGE_DIR)
+# PACKAGE_DIR is _SYSTEM/app in the nested layout. Start root discovery at its
+# enclosing _SYSTEM folder to avoid treating _SYSTEM/app as a fresh project.
+ROOT = find_project_root(PACKAGE_DIR.parent)
 INPUT = ROOT / "1_EINGANG"
 MAIN = PACKAGE_DIR / "main.py"
 # Runtime state belongs with the machinery, not in the user's clean folder view.

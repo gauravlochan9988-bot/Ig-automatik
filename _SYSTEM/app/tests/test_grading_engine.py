@@ -48,7 +48,9 @@ class GradingEngineTests(unittest.TestCase):
                 Path(tmp).resolve(),
             )
 
-    def test_lock_file_lives_inside_the_system_folder(self):
+    def test_lock_file_lives_inside_the_real_project_system_folder(self):
+        self.assertEqual(watch.ROOT.name, "IG-AUTOMATIK")
+        self.assertEqual(watch.INPUT, watch.ROOT / "1_EINGANG")
         self.assertEqual(watch.LOCK.parent.name, "_SYSTEM")
         self.assertEqual(watch.LOCK.name, "watchdog.lock")
         self.assertEqual(watch.LOCK.parent.parent, watch.ROOT)
