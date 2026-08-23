@@ -280,6 +280,11 @@ function inlineUrl(url) {
   return `${url}${url.includes('?') ? '&' : '?'}inline=1`;
 }
 
+function isAppleMobile() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
 function createMediaViewer() {
   const root = document.createElement('div');
   root.className = 'media-viewer';
@@ -290,9 +295,9 @@ function createMediaViewer() {
       <div class="viewer-media"></div>
       <div class="viewer-actions">
         <button class="share viewer-share" type="button">In Fotos sichern</button>
-        <a class="download viewer-download" target="_blank" rel="noopener noreferrer">Datei herunterladen</a>
+        <a class="download viewer-download">Download am Computer</a>
       </div>
-      <p class="viewer-hint">Mit „Datei herunterladen“ öffnet sich der iPhone-Download. Danach kommst du über das X hierher zurück.</p>
+      <p class="viewer-hint">Auf dem iPhone bleibt die App geöffnet. Nutze „In Fotos sichern / teilen“.</p>
     </div>`;
   document.body.appendChild(root);
   const close = () => {
@@ -327,7 +332,9 @@ function openMediaViewer({ downloadUrl, previewUrl, filename, video = false }) {
   const download = root.querySelector('.viewer-download');
   download.href = downloadUrl;
   download.download = safeName;
+  download.hidden = isAppleMobile();
   const share = root.querySelector('.viewer-share');
+  share.textContent = isAppleMobile() ? 'In Fotos sichern / teilen' : 'In Fotos sichern';
   share.onclick = () => shareOutput(downloadUrl, safeName, video, share);
   root.hidden = false;
   document.body.classList.add('viewer-open');
