@@ -12,6 +12,8 @@ let selectedFiles = [];
 let allJobs = [];
 let lastJobsSignature = '';
 let audioContext;
+let jobsRequest = null;
+let pollingTimer = null;
 
 function applyTheme(retro) {
   document.body.classList.toggle('retro', retro);
@@ -117,20 +119,31 @@ function upload(file, onProgress) {
 }
 
 async function loadJobs(force = false) {
-  try {
-    const response = await fetch('/api/jobs', { cache: 'no-store' });
-    if (!response.ok) throw new Error('Status konnte nicht geladen werden.');
-    const data = await response.json();
-    allJobs = data.jobs || [];
-    // Do not rebuild image/video cards when nothing changed. Replacing the
-    // cards every few seconds makes Safari visibly reload the previews.
-    const signature = JSON.stringify(allJobs);
-    if (force || signature !== lastJobsSignature) {
-      lastJobsSignature = signature;
-      renderJobs(allJobs);
+  if (!force && document.visibilityState !== 'visible') return;
+  if (jobsRequest) return jobsRequest;
+
+  jobsRequest = (async () => {
+    try {
+      const response = await fetch('/api/jobs', { cache: 'no-store' });
+      if (!response.ok) throw new Error('Status konnte nicht geladen werden.');
+      const data = await response.json();
+      allJobs = data.jobs || [];
+      // Do not rebuild image/video cards when nothing changed. Replacing the
+      // cards every few seconds makes Safari visibly reload the previews.
+      const signature = JSON.stringify(allJobs);
+      if (force || signature !== lastJobsSignature) {
+        lastJobsSignature = signature;
+        renderJobs(allJobs);
+      }
+    } catch (error) {
+      jobs.innerHTML = `<div class="empty error">${escapeHtml(error.message)}</div>`;
     }
-  } catch (error) {
-    jobs.innerHTML = `<div class="empty error">${escapeHtml(error.message)}</div>`;
+  })();
+
+  try {
+    await jobsRequest;
+  } finally {
+    jobsRequest = null;
   }
 }
 
@@ -464,8 +477,17 @@ function escapeHtml(value) {
   return String(value).replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
 }
 
-loadJobs();
-setInterval(loadJobs, 3000);
+function schedulePolling() {
+  clearTimeout(pollingTimer);
+  pollingTimer = null;
+  if (document.visibilityState !== 'visible') return;
+  pollingTimer = setTimeout(async () => {
+    await loadJobs();
+    schedulePolling();
+  }, 3000);
+}
+
+loadJobs(true).finally(schedulePolling);
 
 // iOS may suspend timers while the Home-Screen app is in the background. A
 // fresh request when the app becomes visible prevents a stale "Wartet auf
@@ -475,11 +497,12 @@ function refreshOnResume() {
   const now = Date.now();
   if (now - lastResumeRefresh < 1000) return;
   lastResumeRefresh = now;
-  loadJobs(true);
+  loadJobs(true).finally(schedulePolling);
 }
 
 window.addEventListener('pageshow', refreshOnResume);
 window.addEventListener('focus', refreshOnResume);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') refreshOnResume();
+  else schedulePolling();
 });
