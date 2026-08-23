@@ -124,7 +124,10 @@ class Config:
 
         # Validate booleans. A hand-edited config can hold the string "false"
         # or "0"; bool("false") would be True, so parse string forms explicitly.
-        for key in ["produce_archives", "produce_masters", "produce_ig", "safe_edit_only", "auto_move_sources"]:
+        for key in [
+            "produce_archives", "produce_masters", "produce_ig", "safe_edit_only",
+            "auto_move_sources", "video_kenburns", "video_best_clips",
+        ]:
             cfg[key] = cls._as_bool(cfg.get(key, cls.DEFAULTS.get(key, True)))
 
         # Validate reel settings

@@ -490,9 +490,12 @@ class GradingEngineTests(unittest.TestCase):
         cfg = Config._validate(
             {
                 "produce_archives": "false",
+                "produce_masters": "true",
                 "auto_move_sources": "0",
                 "produce_ig": "true",
                 "safe_edit_only": "no",
+                "video_kenburns": "false",
+                "video_best_clips": "false",
                 "export_quality": 95,
                 "reel_max_duration": 30,
                 "best_clips_max_segments": 15,
@@ -502,9 +505,12 @@ class GradingEngineTests(unittest.TestCase):
             }
         )
         self.assertIs(cfg["produce_archives"], False)
+        self.assertIs(cfg["produce_masters"], True)
         self.assertIs(cfg["auto_move_sources"], False)
         self.assertIs(cfg["safe_edit_only"], False)
         self.assertIs(cfg["produce_ig"], True)
+        self.assertIs(cfg["video_kenburns"], False)
+        self.assertIs(cfg["video_best_clips"], False)
 
     def test_reel_command_uses_nvenc_when_requested(self):
         command = engine._build_reel_command(
